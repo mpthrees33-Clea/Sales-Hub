@@ -10,8 +10,8 @@
 | `src/types/index.ts` | ✅ Done |
 | `src/data/seedData.ts` | ✅ Done |
 | `src/store/useAppStore.ts` | ✅ Done |
-| `src/components/layout/Sidebar.tsx` | ⬜ TODO |
-| `src/components/layout/Header.tsx` | ⬜ TODO |
+| `src/components/layout/Sidebar.tsx` | ✅ Done |
+| `src/components/layout/Header.tsx` | ✅ Done |
 | `src/main.tsx` | ⬜ TODO |
 | `src/App.tsx` | ⬜ TODO |
 | `src/pages/Dashboard.tsx` | ⬜ TODO |
