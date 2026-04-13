@@ -25,7 +25,7 @@
 | `src/pages/BrochuresPage.tsx` — Upload Modal + CatalogModal w/ brochure picker | ✅ Done |
 | `src/pages/SamplesPage.tsx` — Multi-step form + lookupProductByAnyName | ✅ Done |
 | `src/pages/EmailPage.tsx` — Compose mode + AI Tools panel | ✅ Done |
-| `src/pages/PricingPage.tsx` — Crossover Lookup tab | ⬜ TODO |
+| `src/pages/PricingPage.tsx` — Crossover Lookup tab | ✅ Done |
 
 ## Rules
 - Commit + push after EVERY file
