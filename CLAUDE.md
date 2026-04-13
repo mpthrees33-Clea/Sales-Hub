@@ -14,7 +14,7 @@
 | `src/components/layout/Header.tsx` | ✅ Done |
 | `src/main.tsx` | ✅ Done |
 | `src/App.tsx` | ✅ Done |
-| `src/pages/Dashboard.tsx` | ⬜ TODO |
+| `src/pages/Dashboard.tsx` | ✅ Done |
 | `src/pages/BrochuresPage.tsx` | ⬜ TODO |
 | `src/pages/CRMPage.tsx` | ⬜ TODO |
 | `src/pages/SamplesPage.tsx` | ⬜ TODO |
