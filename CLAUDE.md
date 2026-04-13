@@ -12,8 +12,8 @@
 | `src/store/useAppStore.ts` | ✅ Done |
 | `src/components/layout/Sidebar.tsx` | ✅ Done |
 | `src/components/layout/Header.tsx` | ✅ Done |
-| `src/main.tsx` | ⬜ TODO |
-| `src/App.tsx` | ⬜ TODO |
+| `src/main.tsx` | ✅ Done |
+| `src/App.tsx` | ✅ Done |
 | `src/pages/Dashboard.tsx` | ⬜ TODO |
 | `src/pages/BrochuresPage.tsx` | ⬜ TODO |
 | `src/pages/CRMPage.tsx` | ⬜ TODO |
