@@ -21,7 +21,7 @@
 | `src/pages/EmailPage.tsx` | ✅ Done |
 | `src/pages/PricingPage.tsx` | ✅ Done |
 | `npm install` + `npm run build` | ✅ Done |
-| `src/pages/CRMPage.tsx` — Kanban + List + Detail Panel + New Project Modal | ⬜ TODO |
+| `src/pages/CRMPage.tsx` — Kanban + List + Detail Panel + New Project Modal | ✅ Done |
 | `src/pages/BrochuresPage.tsx` — Upload Modal + CatalogModal w/ brochure picker | ⬜ TODO |
 | `src/pages/SamplesPage.tsx` — Multi-step form + lookupProductByAnyName | ⬜ TODO |
 | `src/pages/EmailPage.tsx` — Compose mode + AI Tools panel | ⬜ TODO |
