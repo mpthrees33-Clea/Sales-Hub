@@ -17,10 +17,10 @@
 | `src/pages/Dashboard.tsx` | ✅ Done |
 | `src/pages/BrochuresPage.tsx` | ✅ Done |
 | `src/pages/CRMPage.tsx` | ✅ Done |
-| `src/pages/SamplesPage.tsx` | ⬜ TODO |
-| `src/pages/EmailPage.tsx` | ⬜ TODO |
-| `src/pages/PricingPage.tsx` | ⬜ TODO |
-| `npm install` + `npm run build` | ⬜ TODO |
+| `src/pages/SamplesPage.tsx` | ✅ Done |
+| `src/pages/EmailPage.tsx` | ✅ Done |
+| `src/pages/PricingPage.tsx` | ✅ Done |
+| `npm install` + `npm run build` | ✅ Done |
 
 ## Rules
 - Commit + push after EVERY file
