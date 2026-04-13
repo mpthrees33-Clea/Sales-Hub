@@ -8,7 +8,7 @@
 | File | Status |
 |------|--------|
 | `src/types/index.ts` | ✅ Done |
-| `src/data/seedData.ts` | ⬜ TODO |
+| `src/data/seedData.ts` | ✅ Done |
 | `src/store/useAppStore.ts` | ⬜ TODO |
 | `src/components/layout/Sidebar.tsx` | ⬜ TODO |
 | `src/components/layout/Header.tsx` | ⬜ TODO |
