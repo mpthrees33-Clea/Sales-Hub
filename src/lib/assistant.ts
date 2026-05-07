@@ -28,6 +28,7 @@ export interface ProcessResult {
   response: string;
   nextFlow: FlowState | null;
   action?: AssistantAction;
+  unknown?: boolean;
 }
 
 function findCustomer(q: string, customers: Customer[]): Customer | undefined {
@@ -168,5 +169,9 @@ export function processMessage(
     return { response: "I can help with: new project, new sample order, track orders, pipeline summary, or product price lookup. What do you need?", nextFlow: null };
   }
 
-  return { response: "I didn't catch that. Try: new project, new sample order, track orders, my pipeline, or look up a product.", nextFlow: null };
+  return {
+    response: "I didn't catch that. Try: new project, new sample order, track orders, my pipeline, or look up a product.",
+    nextFlow: null,
+    unknown: true,
+  };
 }

@@ -3,6 +3,7 @@ import { Mic, MicOff, Send, Bot, Volume2, VolumeX, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../store/useAppStore';
 import { processMessage, type Message, type FlowState } from '../lib/assistant';
+import { askLLM, isLLMConfigured } from '../lib/llm';
 import { useSpeechInput, speak, stopSpeaking } from '../hooks/useSpeech';
 
 const QUICK_ACTIONS = [
@@ -25,10 +26,12 @@ export default function AssistantPage() {
   const [flow, setFlow]         = useState<FlowState | null>(null);
   const [input, setInput]       = useState('');
   const [tts, setTts]           = useState(true);
+  const [thinking, setThinking] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const llmEnabled = isLLMConfigured();
 
   const handleText = useCallback(
-    (raw: string) => {
+    async (raw: string) => {
       const text = raw.trim();
       if (!text) return;
 
@@ -40,9 +43,8 @@ export default function AssistantPage() {
         projects:     store.projects,
       };
       const result = processMessage(text, flow, snap);
-      const botMsg: Message = { id: `b${Date.now()}`, role: 'assistant', text: result.response, ts: Date.now() };
 
-      setMessages((prev) => [...prev, userMsg, botMsg]);
+      setMessages((prev) => [...prev, userMsg]);
       setFlow(result.nextFlow);
       setInput('');
 
@@ -77,16 +79,33 @@ export default function AssistantPage() {
         }
       }
 
-      if (tts) speak(result.response);
+      let reply = result.response;
+
+      if (result.unknown && llmEnabled) {
+        setThinking(true);
+        try {
+          const history: Message[] = [...messages, userMsg];
+          reply = await askLLM(history, snap);
+        } catch (err) {
+          console.error('LLM call failed', err);
+        } finally {
+          setThinking(false);
+        }
+      }
+
+      const botMsg: Message = { id: `b${Date.now()}`, role: 'assistant', text: reply, ts: Date.now() };
+      setMessages((prev) => [...prev, botMsg]);
+
+      if (tts) speak(reply);
     },
-    [flow, store, tts],
+    [flow, store, tts, messages, llmEnabled],
   );
 
   const { listening, supported, start, stop } = useSpeechInput(handleText);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, thinking]);
 
   const toggleMic = () => (listening ? stop() : start());
 
@@ -103,7 +122,15 @@ export default function AssistantPage() {
           <div>
             <p className="text-sm font-bold leading-tight">Sales Assistant</p>
             <p className="text-xs text-blue-200">
-              {listening ? '🎤 Listening…' : flow ? `Step: ${flow.type.replace('-', ' ')}` : 'Ready — speak or type'}
+              {thinking
+                ? 'Thinking…'
+                : listening
+                  ? '🎤 Listening…'
+                  : flow
+                    ? `Step: ${flow.type.replace('-', ' ')}`
+                    : llmEnabled
+                      ? 'Ready — Gemini-backed'
+                      : 'Ready — speak or type'}
             </p>
           </div>
         </div>
@@ -135,6 +162,16 @@ export default function AssistantPage() {
             </div>
           </div>
         ))}
+        {thinking && (
+          <div className="flex gap-2 items-end justify-start">
+            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+              <Bot size={13} className="text-blue-600" />
+            </div>
+            <div className="bg-slate-100 text-slate-500 italic px-4 py-2.5 rounded-2xl rounded-bl-sm text-sm">
+              Thinking…
+            </div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
