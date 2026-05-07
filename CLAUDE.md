@@ -26,6 +26,9 @@
 | `src/pages/SamplesPage.tsx` — Multi-step form + lookupProductByAnyName | ✅ Done |
 | `src/pages/EmailPage.tsx` — Compose mode + AI Tools panel | ✅ Done |
 | `src/pages/PricingPage.tsx` — Crossover Lookup tab | ✅ Done |
+| `src/hooks/useSpeech.ts` — Web Speech API + TTS | ✅ Done |
+| `src/lib/assistant.ts` — Conversation engine (intents + flows) | ✅ Done |
+| `src/pages/AssistantPage.tsx` — Mobile-first voice assistant chat UI | ✅ Done |
 
 ## Rules
 - Commit + push after EVERY file

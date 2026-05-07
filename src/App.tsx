@@ -9,6 +9,7 @@ import CRMPage from './pages/CRMPage';
 import SamplesPage from './pages/SamplesPage';
 import EmailPage from './pages/EmailPage';
 import PricingPage from './pages/PricingPage';
+import AssistantPage from './pages/AssistantPage';
 
 export default function App() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/samples" element={<SamplesPage />} />
             <Route path="/email" element={<EmailPage />} />
             <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/assistant" element={<AssistantPage />} />
           </Routes>
         </main>
       </div>

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, Users, Package,
-  Mail, DollarSign, X,
+  Mail, DollarSign, X, Mic,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../../store/useAppStore';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/samples',   label: 'Samples',     icon: Package },
   { to: '/email',     label: 'Email',       icon: Mail },
   { to: '/pricing',   label: 'Pricing',     icon: DollarSign },
+  { to: '/assistant', label: 'Assistant',   icon: Mic },
 ];
 
 export default function Sidebar() {
