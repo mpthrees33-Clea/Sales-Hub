@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Search, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import type { Product } from '../types';
 
 const BRAND_COLORS: Record<string, string> = {
   Armstrong:  'bg-danger/15 text-danger',
@@ -16,16 +17,92 @@ const BRAND_COLORS: Record<string, string> = {
 };
 const brandColor = (b: string) => BRAND_COLORS[b] ?? 'bg-surface-1 text-fg-muted';
 
+// Render a small spec block from a product if it has any pack/container/dim data.
+// Returns null if the product has no extended specs yet.
+function ProductSpecBlock({ product }: { product?: Product }) {
+  if (!product) return null;
+  const { pack, container, dimensions, lot, shade } = product;
+  const hasAny =
+    !!pack || !!container || !!dimensions || !!lot || !!shade;
+  if (!hasAny) return null;
+
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) =>
+    value === undefined || value === null || value === '' ? null : (
+      <div className="flex justify-between gap-2 text-xs">
+        <span className="text-fg-faint">{label}</span>
+        <span className="text-fg tabular-nums">{value}</span>
+      </div>
+    );
+
+  // Only show container block for categories that ship by container
+  const showContainer = !!container && (
+    product.category === 'LVP' || product.category === 'SPC' || product.category === 'Tile'
+  );
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 mt-2 px-3 py-2 bg-bg rounded border border-divider">
+      <div>
+        <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-1">Dimensions</p>
+        <Row label="Thickness" value={dimensions?.thicknessMm != null ? `${dimensions.thicknessMm} mm` : undefined} />
+        <Row label="Size" value={
+          dimensions?.lengthIn && dimensions?.widthIn
+            ? `${dimensions.lengthIn}" × ${dimensions.widthIn}"`
+            : undefined
+        } />
+        <Row label="Wear layer" value={dimensions?.wearLayerMil != null ? `${dimensions.wearLayerMil} mil` : undefined} />
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-1">Pack</p>
+        <Row label="sf/ctn" value={pack?.sfPerCarton} />
+        <Row label="sf/plt" value={pack?.sfPerPallet} />
+        <Row label="ctn/plt" value={pack?.cartonsPerPallet} />
+        <Row label="lbs/ctn" value={pack?.lbsPerCarton} />
+        <Row label="lbs/plt" value={pack?.lbsPerPallet} />
+        <Row label="pcs/ctn" value={pack?.piecesPerCarton} />
+      </div>
+      <div>
+        {showContainer && (
+          <>
+            <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-1">Container</p>
+            <Row label="ctn/cont" value={container?.cartonsPerContainer} />
+            <Row label="sf/cont" value={container?.sfPerContainer} />
+            <Row label="plt/cont" value={container?.palletsPerContainer} />
+          </>
+        )}
+        {(lot || shade) && (
+          <>
+            <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-1 mt-2">Quality</p>
+            <Row label="Lot" value={lot} />
+            <Row label="Shade" value={shade} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type SortField = 'name' | 'sku' | 'list' | 'net' | 'margin' | 'thickness' | 'unit';
+type SortDir = 'asc' | 'desc';
+
 // ── Price Sheet Tab ────────────────────────────────────────
 function PriceSheetTab() {
-  const { priceEntries } = useAppStore();
+  const { priceEntries, products } = useAppStore();
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
+  }
 
   const grouped = priceEntries.reduce<Record<string, typeof priceEntries>>((acc, e) => {
     (acc[e.productId] ??= []).push(e);
     return acc;
   }, {});
+
+  const productById = new Map(products.map((p) => [p.id, p]));
 
   const productIds = Object.keys(grouped).filter((pid) => {
     if (!search) return true;
@@ -35,6 +112,43 @@ function PriceSheetTab() {
       e.privateLabelBrand.toLowerCase().includes(q) || e.privateLabelName.toLowerCase().includes(q)
     );
   });
+
+  // Sort
+  const sorted = [...productIds].sort((a, b) => {
+    const ea = grouped[a][0], eb = grouped[b][0];
+    const pa = productById.get(a), pb = productById.get(b);
+    let av: string | number | undefined;
+    let bv: string | number | undefined;
+    switch (sortField) {
+      case 'name': av = ea.trinityName.toLowerCase(); bv = eb.trinityName.toLowerCase(); break;
+      case 'sku':  av = ea.trinitySku.toLowerCase();  bv = eb.trinitySku.toLowerCase();  break;
+      case 'list': av = ea.listPrice; bv = eb.listPrice; break;
+      case 'net':  av = ea.netPrice;  bv = eb.netPrice;  break;
+      case 'margin':
+        av = (ea.listPrice - ea.netPrice) / ea.listPrice;
+        bv = (eb.listPrice - eb.netPrice) / eb.listPrice;
+        break;
+      case 'thickness':
+        av = pa?.dimensions?.thicknessMm; bv = pb?.dimensions?.thicknessMm; break;
+      case 'unit': av = ea.unit; bv = eb.unit; break;
+    }
+    // null / undefined sort to the end
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const SortHead = ({ field, label, align = 'left' }: { field: SortField; label: string; align?: 'left' | 'right' }) => (
+    <th className={`px-3 py-2 text-${align} cursor-pointer select-none hover:text-fg`} onClick={() => toggleSort(field)}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortField === field && (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
+      </span>
+    </th>
+  );
 
   return (
     <>
@@ -48,20 +162,23 @@ function PriceSheetTab() {
           <thead className="bg-bg text-xs text-fg-muted uppercase tracking-wide">
             <tr>
               <th className="px-3 py-2 text-left w-6" />
-              <th className="px-3 py-2 text-left">Trinity Name</th>
-              <th className="px-3 py-2 text-left">SKU</th>
-              <th className="px-3 py-2 text-right">List $</th>
-              <th className="px-3 py-2 text-right">Net $</th>
-              <th className="px-3 py-2 text-right">Margin</th>
-              <th className="px-3 py-2 text-left">Unit</th>
+              <SortHead field="name" label="Trinity Name" />
+              <SortHead field="sku" label="SKU" />
+              <SortHead field="list" label="List $" align="right" />
+              <SortHead field="net" label="Net $" align="right" />
+              <SortHead field="margin" label="Margin" align="right" />
+              <SortHead field="thickness" label="Thk" align="right" />
+              <SortHead field="unit" label="Unit" />
             </tr>
           </thead>
           <tbody className="divide-y divide-divider">
-            {productIds.map((pid) => {
+            {sorted.map((pid) => {
               const entries = grouped[pid];
               const first = entries[0];
               const isOpen = expanded === pid;
               const margin = ((first.listPrice - first.netPrice) / first.listPrice * 100).toFixed(0);
+              const product = productById.get(pid);
+              const thk = product?.dimensions?.thicknessMm;
               return [
                 <tr key={pid} className="hover:bg-bg cursor-pointer" onClick={() => setExpanded(isOpen ? null : pid)}>
                   <td className="px-3 py-2 text-fg-faint"><ChevronDown size={13} className={`transition-transform ${isOpen ? '' : '-rotate-90'}`} /></td>
@@ -70,8 +187,17 @@ function PriceSheetTab() {
                   <td className="px-3 py-2 text-right text-fg">${first.listPrice.toFixed(2)}</td>
                   <td className="px-3 py-2 text-right text-success font-medium">${first.netPrice.toFixed(2)}</td>
                   <td className="px-3 py-2 text-right text-fg-muted">{margin}%</td>
+                  <td className="px-3 py-2 text-right text-fg-muted text-xs">{thk != null ? `${thk}mm` : '—'}</td>
                   <td className="px-3 py-2 text-fg-faint text-xs">{first.unit}</td>
                 </tr>,
+                isOpen && (
+                  <tr key={`${pid}-spec`} className="bg-surface-1">
+                    <td />
+                    <td colSpan={7} className="px-3 pt-1 pb-2">
+                      <ProductSpecBlock product={product} />
+                    </td>
+                  </tr>
+                ),
                 isOpen && entries.map((e) => (
                   <tr key={e.id} className="bg-accent/10">
                     <td className="px-3 py-1.5" />
@@ -82,7 +208,7 @@ function PriceSheetTab() {
                     </td>
                     <td className="px-3 py-1.5 text-right text-xs text-fg-muted">${e.listPrice.toFixed(2)}</td>
                     <td className="px-3 py-1.5 text-right text-xs text-success">${e.netPrice.toFixed(2)}</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 )),
               ];
@@ -96,8 +222,21 @@ function PriceSheetTab() {
 
 // ── Crossover Lookup Tab ───────────────────────────────────
 function CrossoverTab() {
-  const { products } = useAppStore();
+  const { products, deleteProduct, priceEntries, updatePriceEntry } = useAppStore();
   const [query, setQuery] = useState('');
+
+  function handleDelete(p: Product) {
+    const linked = priceEntries.filter((e) => e.productId === p.id).length;
+    const msg = linked > 0
+      ? `Delete "${p.trinityName}"? ${linked} price entr${linked === 1 ? 'y references' : 'ies reference'} this product and will be unlinked.`
+      : `Delete "${p.trinityName}"? This cannot be undone.`;
+    if (!confirm(msg)) return;
+    // Unlink price entries (keep the row, drop the productId)
+    priceEntries
+      .filter((e) => e.productId === p.id)
+      .forEach((e) => updatePriceEntry(e.id, { productId: '' }));
+    deleteProduct(p.id);
+  }
 
   const results = query.length >= 2 ? products.filter((p) => {
     const q = query.toLowerCase();
@@ -126,8 +265,16 @@ function CrossoverTab() {
 
       <div className="space-y-3">
         {results.map((p) => (
-          <div key={p.id} className="bg-surface rounded-lg border border-divider p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
+          <div key={p.id} className="bg-surface rounded-lg border border-divider p-4 relative">
+            <button
+              onClick={() => handleDelete(p)}
+              className="absolute top-3 right-3 p-1.5 rounded text-fg-faint hover:text-danger hover:bg-danger/10 transition-colors"
+              aria-label={`Delete ${p.trinityName}`}
+              title="Delete product"
+            >
+              <Trash2 size={14} />
+            </button>
+            <div className="flex flex-col sm:flex-row gap-4 pr-8">
               {/* Trinity side */}
               <div className="sm:w-48 shrink-0">
                 <p className="text-xs font-semibold text-accent-light uppercase tracking-wide mb-1">Trinity</p>
@@ -166,6 +313,7 @@ function CrossoverTab() {
                 </table>
               </div>
             </div>
+            <ProductSpecBlock product={p} />
           </div>
         ))}
         {query.length >= 2 && results.length === 0 && (

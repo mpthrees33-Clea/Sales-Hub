@@ -150,11 +150,11 @@ export function processMessage(
   }
 
   if (intent === 'pipeline') {
-    const open = snap.projects.filter((p) => ['Lead', 'Active', 'Quoted'].includes(p.status));
+    const open = snap.projects.filter((p) => ['Lead', 'Active', 'Bidding'].includes(p.status));
     const total = open.reduce((s, p) => s + p.value, 0);
-    const counts = { Lead: 0, Active: 0, Quoted: 0 };
+    const counts = { Lead: 0, Active: 0, Bidding: 0 };
     open.forEach((p) => { if (p.status in counts) counts[p.status as keyof typeof counts]++; });
-    return { response: `Pipeline: ${open.length} open projects totaling ${fmt$(total)}. Leads: ${counts.Lead}, Active: ${counts.Active}, Quoted: ${counts.Quoted}.`, nextFlow: null };
+    return { response: `Pipeline: ${open.length} open projects totaling ${fmt$(total)}. Leads: ${counts.Lead}, Active: ${counts.Active}, Bidding: ${counts.Bidding}.`, nextFlow: null };
   }
 
   if (intent === 'lookup') {

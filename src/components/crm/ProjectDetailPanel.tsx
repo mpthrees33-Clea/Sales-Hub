@@ -3,12 +3,12 @@ import { useAppStore } from '../../store/useAppStore';
 import { X, MessageSquare } from 'lucide-react';
 import type { Project, ProjectStatus } from '../../types';
 
-const STATUSES: ProjectStatus[] = ['Lead','Active','Quoted','Won','Lost'];
+const STATUSES: ProjectStatus[] = ['Lead','Active','Bidding','Won','Lost'];
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
   Lead:   'bg-surface-1 text-fg-muted',
   Active: 'bg-accent/15 text-accent-light',
-  Quoted: 'bg-warning/15 text-warning',
+  Bidding: 'bg-warning/15 text-warning',
   Won:    'bg-success/15 text-success',
   Lost:   'bg-danger/15 text-danger',
 };

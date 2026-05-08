@@ -306,7 +306,7 @@ export const seedProjects: Project[] = [
     createdDate: '2025-02-15', anticipatedOrderDate: '2025-05-01',
   },
   {
-    id: 'pr2', customerId: 'c2', name: 'Midtown Penthouse Renovation', status: 'Quoted',
+    id: 'pr2', customerId: 'c2', name: 'Midtown Penthouse Renovation', status: 'Bidding',
     description: 'Full-floor renovation of penthouse unit with premium engineered hardwood',
     address: '1065 Peachtree St NE Unit PH, Atlanta, GA 30309',
     value: 42000, productIds: ['p3', 'p7'], sampleOrderIds: ['so2'],
@@ -338,7 +338,7 @@ export const seedProjects: Project[] = [
     createdDate: '2025-03-20', anticipatedOrderDate: '2025-06-01',
   },
   {
-    id: 'pr6', customerId: 'c7', name: 'Macon Medical Office Build', status: 'Quoted',
+    id: 'pr6', customerId: 'c7', name: 'Macon Medical Office Build', status: 'Bidding',
     description: 'Medical office LVT installation, healthcare spec requirements',
     address: '600 Professional Blvd, Macon, GA 31210',
     value: 67000, productIds: ['p8', 'p6'], sampleOrderIds: [],

@@ -12,8 +12,41 @@ export type ProductCategory =
   | 'Other';
 
 export type CustomerType = 'Contractor' | 'Architect' | 'Designer' | 'Dealer' | 'Homeowner';
-export type ProjectStatus = 'Lead' | 'Active' | 'Quoted' | 'Won' | 'Lost';
+export type ProjectStatus = 'Lead' | 'Active' | 'Bidding' | 'Won' | 'Lost';
 export type SampleOrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered';
+
+// Pack & shipping data — sf/ctn, sf/plt, lbs/ctn, lbs/plt, etc.
+export interface ProductPack {
+  sfPerCarton?: number;
+  sfPerPallet?: number;
+  cartonsPerPallet?: number;
+  lbsPerCarton?: number;
+  lbsPerPallet?: number;
+  piecesPerCarton?: number;
+}
+
+// Container quantities (LVT, wall tile, ceramic — full-load buys)
+export interface ProductContainer {
+  cartonsPerContainer?: number;
+  sfPerContainer?: number;
+  palletsPerContainer?: number;
+}
+
+// Physical dimensions
+export interface ProductDimensions {
+  thicknessMm?: number;     // overall thickness in mm
+  lengthIn?: number;        // plank/tile length in inches
+  widthIn?: number;         // plank/tile width in inches
+  wearLayerMil?: number;    // LVT/SPC wear layer in mil
+}
+
+// Global app settings (targets, etc.)
+export interface AppSettings {
+  weeklySalesTarget: number;
+  monthlySalesTarget: number;
+  weeklyInvoiceTarget: number;
+  monthlyInvoiceTarget: number;
+}
 
 export interface PrivateLabel {
   brand: string;
@@ -39,6 +72,13 @@ export interface Product {
   unit: 'sq ft' | 'sq yd' | 'carton' | 'each';
   sqftPerCarton?: number;
   status: 'active' | 'discontinued' | 'limited';
+
+  // Commercial spec data (optional — populated as data lands)
+  pack?: ProductPack;
+  container?: ProductContainer;
+  dimensions?: ProductDimensions;
+  lot?: string;
+  shade?: string;
 }
 
 export interface Brochure {
@@ -133,6 +173,8 @@ export interface Project {
   createdDate: string;
   anticipatedOrderDate?: string;
   closingDate?: string;
+  invoicedDate?: string;
+  invoicedAmount?: number;
 }
 
 export interface SampleOrderItem {

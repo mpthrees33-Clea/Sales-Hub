@@ -223,14 +223,18 @@ export default function SamplesPage() {
                     </div>
                     <p className="text-xs text-fg-muted">{order.shippingName} · {order.shippingAddress}, {order.shippingCity}, {order.shippingState} {order.shippingZip}</p>
                     {order.trackingNumber && <p className="text-xs text-accent-light">Track: {order.trackingNumber}</p>}
-                    {order.status !== 'Delivered' && (
-                      <button onClick={() => {
-                        const next: Record<SampleOrderStatus, SampleOrderStatus> = { Pending:'Processing', Processing:'Shipped', Shipped:'Delivered', Delivered:'Delivered' };
-                        updateSampleOrder(order.id, { status: next[order.status] });
-                      }} className="text-xs px-3 py-1 bg-accent text-white rounded hover:bg-accent-dim">
-                        Advance Status
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-fg-faint">Status:</label>
+                      <select
+                        value={order.status}
+                        onChange={(e) => updateSampleOrder(order.id, { status: e.target.value as SampleOrderStatus })}
+                        className="text-xs px-2 py-1 rounded border border-divider focus:border-accent focus:outline-none"
+                      >
+                        {(['Pending','Processing','Shipped','Delivered'] as SampleOrderStatus[]).map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>

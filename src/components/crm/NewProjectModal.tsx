@@ -108,7 +108,7 @@ export default function NewProjectModal({ onClose }: Props) {
               className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               value={form.status} onChange={(e) => set('status', e.target.value as any)}
             >
-              {['Lead','Active','Quoted','Won','Lost'].map((s) => <option key={s}>{s}</option>)}
+              {['Lead','Active','Bidding','Won','Lost'].map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
 

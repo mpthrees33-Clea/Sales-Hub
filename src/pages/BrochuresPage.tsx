@@ -153,7 +153,8 @@ export default function BrochuresPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map((b) => (
-              <BrochureCard key={b.id} brochure={b} onDelete={() => deleteBrochure(b.id)} />
+              <BrochureCard key={b.id} brochure={b}
+                onDelete={() => { if (confirm(`Delete brochure "${b.name}"?`)) deleteBrochure(b.id); }} />
             ))}
           </div>
         </>
@@ -172,7 +173,7 @@ export default function BrochuresPage() {
               <CatalogCard key={c.id} catalog={c} brochures={brochures}
                 onClone={() => handleClone(c)}
                 onEdit={() => { setEditingCatalog(c); setShowCatalogModal(true); }}
-                onDelete={() => deleteCatalog(c.id)} />
+                onDelete={() => { if (confirm(`Delete catalog "${c.name}"? This removes the catalog itself; the underlying brochures remain.`)) deleteCatalog(c.id); }} />
             ))}
           </div>
         </>

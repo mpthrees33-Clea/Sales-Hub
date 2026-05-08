@@ -3,8 +3,15 @@ import { persist } from 'zustand/middleware';
 import type {
   Product, Customer, Project, SampleOrder,
   EmailMessage, Brochure, Catalog,
-  PriceEntry, DistributorPriceList,
+  PriceEntry, DistributorPriceList, AppSettings,
 } from '../types';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  weeklySalesTarget: 50000,
+  monthlySalesTarget: 200000,
+  weeklyInvoiceTarget: 50000,
+  monthlyInvoiceTarget: 200000,
+};
 import {
   seedProducts, seedCustomers, seedProjects, seedSampleOrders,
   seedEmails, seedBrochures, seedCatalogs,
@@ -23,8 +30,12 @@ interface AppState {
   priceEntries: PriceEntry[];
   distributorPriceLists: DistributorPriceList[];
 
+  // Settings
+  settings: AppSettings;
+
   // UI
   sidebarOpen: boolean;
+  selectedProjectId: string | null;
 
   // Actions — Products
   addProduct: (p: Product) => void;
@@ -65,9 +76,13 @@ interface AppState {
   updatePriceEntry: (id: string, patch: Partial<PriceEntry>) => void;
   addDistributorPriceList: (dpl: DistributorPriceList) => void;
 
+  // Actions — Settings
+  updateSettings: (patch: Partial<AppSettings>) => void;
+
   // Actions — UI
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  setSelectedProjectId: (id: string | null) => void;
 
   // Utility
   lookupProductByAnyName: (query: string) => Product | undefined;
@@ -86,7 +101,9 @@ export const useAppStore = create<AppState>()(
       catalogs: seedCatalogs,
       priceEntries: seedPriceEntries,
       distributorPriceLists: seedDistributorPriceLists,
+      settings: DEFAULT_SETTINGS,
       sidebarOpen: true,
+      selectedProjectId: null,
 
       // Products
       addProduct: (p) => set((s) => ({ products: [...s.products, p] })),
@@ -142,9 +159,14 @@ export const useAppStore = create<AppState>()(
       addDistributorPriceList: (dpl) =>
         set((s) => ({ distributorPriceLists: [...s.distributorPriceLists, dpl] })),
 
+      // Settings
+      updateSettings: (patch) =>
+        set((s) => ({ settings: { ...s.settings, ...patch } })),
+
       // UI
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      setSelectedProjectId: (id) => set({ selectedProjectId: id }),
 
       // Lookup a product by Trinity name, SKU, any private-label name/brand/SKU, tag, or category
       lookupProductByAnyName: (query) => {
@@ -165,6 +187,18 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
+      version: 2,
+      // Migrate persisted state (e.g. rename 'Quoted' → 'Bidding')
+      migrate: (persisted: any, _version) => {
+        if (!persisted) return persisted;
+        if (Array.isArray(persisted.projects)) {
+          persisted.projects = persisted.projects.map((p: any) =>
+            p?.status === 'Quoted' ? { ...p, status: 'Bidding' } : p
+          );
+        }
+        if (!persisted.settings) persisted.settings = DEFAULT_SETTINGS;
+        return persisted;
+      },
       // Don't persist file objects (objectURLs) — only metadata persists
       partialize: (state) => ({
         products: state.products,
@@ -176,6 +210,7 @@ export const useAppStore = create<AppState>()(
         catalogs: state.catalogs,
         priceEntries: state.priceEntries,
         distributorPriceLists: state.distributorPriceLists,
+        settings: state.settings,
       }),
     }
   )

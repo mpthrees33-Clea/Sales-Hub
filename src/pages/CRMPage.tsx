@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Plus, List, LayoutGrid, X } from 'lucide-react';
+import { Plus, List, LayoutGrid } from 'lucide-react';
 import type { Project, ProjectStatus } from '../types';
 import NewProjectModal from '../components/crm/NewProjectModal';
 import ProjectDetailPanel from '../components/crm/ProjectDetailPanel';
 
-const STATUSES: ProjectStatus[] = ['Lead', 'Active', 'Quoted', 'Won', 'Lost'];
+const STATUSES: ProjectStatus[] = ['Lead', 'Active', 'Bidding', 'Won', 'Lost'];
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
   Lead:   'border-divider-strong bg-bg text-fg-muted',
   Active: 'border-accent/40 bg-accent/10 text-accent-light',
-  Quoted: 'border-warning/40 bg-warning/10 text-warning',
+  Bidding: 'border-warning/40 bg-warning/10 text-warning',
   Won:    'border-success/40 bg-success/10 text-success',
   Lost:   'border-danger/40 bg-danger/10 text-danger',
 };
@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<ProjectStatus, string> = {
 const STATUS_HEADER: Record<ProjectStatus, string> = {
   Lead:   'bg-surface-1 text-fg',
   Active: 'bg-accent/15 text-accent-light',
-  Quoted: 'bg-warning/15 text-warning',
+  Bidding: 'bg-warning/15 text-warning',
   Won:    'bg-success/15 text-success',
   Lost:   'bg-danger/15 text-danger',
 };
@@ -111,9 +111,18 @@ function ListView({ onSelect }: { onSelect: (p: Project) => void }) {
 }
 
 export default function CRMPage() {
+  const { projects, selectedProjectId, setSelectedProjectId } = useAppStore();
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selected, setSelected] = useState<Project | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Honor cross-page nav: Dashboard sets selectedProjectId, we open the panel here
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    const p = projects.find((x) => x.id === selectedProjectId);
+    if (p) setSelected(p);
+    setSelectedProjectId(null);
+  }, [selectedProjectId, projects, setSelectedProjectId]);
 
   return (
     <div className="space-y-4">
