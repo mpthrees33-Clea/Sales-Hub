@@ -48,62 +48,62 @@ export default function UploadModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">Upload Brochure</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-divider">
+          <h2 className="font-semibold text-fg">Upload Brochure</h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-surface-1"><X size={16} /></button>
         </div>
         <form onSubmit={submit} className="px-5 py-4 space-y-3">
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded">{error}</p>}
+          {error && <p className="text-xs text-danger bg-danger/10 px-3 py-2 rounded">{error}</p>}
 
           {/* File drop zone */}
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 transition-colors"
+            className="border-2 border-dashed border-divider rounded-lg p-4 text-center cursor-pointer hover:border-accent/40 transition-colors"
           >
-            <Upload size={20} className="mx-auto text-slate-400 mb-1" />
-            <p className="text-sm text-slate-500">{file ? file.name : 'Click to choose PDF or image'}</p>
+            <Upload size={20} className="mx-auto text-fg-faint mb-1" />
+            <p className="text-sm text-fg-muted">{file ? file.name : 'Click to choose PDF or image'}</p>
             <input ref={fileRef} type="file" accept=".pdf,image/*" className="hidden" onChange={onFileChange} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
-              <input className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <label className="block text-xs font-medium text-fg-muted mb-1">Name *</label>
+              <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={form.name} onChange={(e) => set('name', e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Brand *</label>
-              <input className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <label className="block text-xs font-medium text-fg-muted mb-1">Brand *</label>
+              <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={form.brand} onChange={(e) => set('brand', e.target.value)} placeholder="e.g. Shaw" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Category *</label>
-              <select className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <label className="block text-xs font-medium text-fg-muted mb-1">Category *</label>
+              <select className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={form.category} onChange={(e) => set('category', e.target.value)}>
                 {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Page Count</label>
+              <label className="block text-xs font-medium text-fg-muted mb-1">Page Count</label>
               <input type="number" min="1"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={form.pageCount} onChange={(e) => set('pageCount', e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Tags (comma-separated)</label>
-            <input className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <label className="block text-xs font-medium text-fg-muted mb-1">Tags (comma-separated)</label>
+            <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="lvp, waterproof, commercial" />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-100">Cancel</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Upload</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-fg-muted rounded-lg hover:bg-surface-1">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-dim">Upload</button>
           </div>
         </form>
       </div>

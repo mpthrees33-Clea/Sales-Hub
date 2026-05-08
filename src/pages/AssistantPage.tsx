@@ -110,33 +110,35 @@ export default function AssistantPage() {
   const toggleMic = () => (listening ? stop() : start());
 
   return (
-    <div className="flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden"
+    <div className="flex flex-col bg-surface rounded-xl border border-divider overflow-hidden"
       style={{ height: 'calc(100dvh - 7rem)' }}>
 
       {/* ── Header ────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-gradient-to-r from-blue-700 to-blue-600 text-white shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-divider bg-surface-1 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-            <Bot size={18} className="text-white" />
+          <div className="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center">
+            <Bot size={18} className="text-accent-light" />
           </div>
           <div>
-            <p className="text-sm font-bold leading-tight">Sales Assistant</p>
-            <p className="text-xs text-blue-200">
-              {thinking
-                ? 'Thinking…'
-                : listening
-                  ? '🎤 Listening…'
-                  : flow
-                    ? `Step: ${flow.type.replace('-', ' ')}`
-                    : llmEnabled
-                      ? 'Ready — Gemini-backed'
-                      : 'Ready — speak or type'}
+            <p className="text-sm font-semibold leading-tight text-fg">Sales Assistant</p>
+            <p className="text-xs text-fg-muted">
+              {thinking ? (
+                <span className="text-accent-light">Thinking…</span>
+              ) : listening ? (
+                <span className="text-danger">● Listening</span>
+              ) : flow ? (
+                <>Step: {flow.type.replace('-', ' ')}</>
+              ) : llmEnabled ? (
+                <>Ready · <span className="text-accent-light">Gemini-backed</span></>
+              ) : (
+                <>Ready — regex mode</>
+              )}
             </p>
           </div>
         </div>
         <button
           onClick={() => { setTts((v) => !v); stopSpeaking(); }}
-          className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+          className="p-2 rounded-lg text-fg-muted hover:bg-surface-2 hover:text-fg transition-colors"
           title={tts ? 'Mute voice responses' : 'Unmute voice responses'}
         >
           {tts ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -148,15 +150,15 @@ export default function AssistantPage() {
         {messages.map((m) => (
           <div key={m.id} className={clsx('flex gap-2 items-end', m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'assistant' && (
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                <Bot size={13} className="text-blue-600" />
+              <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+                <Bot size={13} className="text-accent-light" />
               </div>
             )}
             <div className={clsx(
               'max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
               m.role === 'user'
-                ? 'bg-blue-600 text-white rounded-br-sm'
-                : 'bg-slate-100 text-slate-800 rounded-bl-sm',
+                ? 'bg-accent text-white rounded-br-sm'
+                : 'bg-surface-1 text-fg rounded-bl-sm',
             )}>
               {m.text}
             </div>
@@ -164,10 +166,10 @@ export default function AssistantPage() {
         ))}
         {thinking && (
           <div className="flex gap-2 items-end justify-start">
-            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-              <Bot size={13} className="text-blue-600" />
+            <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+              <Bot size={13} className="text-accent-light" />
             </div>
-            <div className="bg-slate-100 text-slate-500 italic px-4 py-2.5 rounded-2xl rounded-bl-sm text-sm">
+            <div className="bg-surface-1 text-fg-muted italic px-4 py-2.5 rounded-2xl rounded-bl-sm text-sm">
               Thinking…
             </div>
           </div>
@@ -177,12 +179,12 @@ export default function AssistantPage() {
 
       {/* ── Quick actions (shown until user engages) ──────── */}
       {messages.length <= 3 && !flow && (
-        <div className="px-4 py-3 border-t border-slate-100 shrink-0">
-          <p className="text-xs text-slate-400 mb-2 flex items-center gap-1"><Zap size={11} /> Quick actions</p>
+        <div className="px-4 py-3 border-t border-divider shrink-0">
+          <p className="text-xs text-fg-faint mb-2 flex items-center gap-1"><Zap size={11} /> Quick actions</p>
           <div className="grid grid-cols-2 gap-2">
             {QUICK_ACTIONS.map((q) => (
               <button key={q.label} onClick={() => handleText(q.text)}
-                className="text-sm font-medium px-3 py-2.5 bg-slate-50 text-slate-700 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 active:scale-95 transition-all text-left">
+                className="text-sm font-medium px-3 py-2.5 bg-bg text-fg rounded-xl border border-divider hover:bg-accent/10 hover:border-accent/40 hover:text-accent-light active:scale-95 transition-all text-left">
                 {q.label}
               </button>
             ))}
@@ -191,9 +193,9 @@ export default function AssistantPage() {
       )}
 
       {/* ── Input bar ─────────────────────────────────────── */}
-      <div className="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-slate-50">
+      <div className="px-4 py-3 border-t border-divider flex items-center gap-2 shrink-0 bg-bg">
         <input
-          className="flex-1 min-w-0 px-4 py-3 text-base border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+          className="flex-1 min-w-0 px-4 py-3 text-base border border-divider rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-fg-faint"
           placeholder={listening ? 'Listening…' : 'Type a command…'}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -202,7 +204,7 @@ export default function AssistantPage() {
         <button
           onClick={() => handleText(input)}
           disabled={!input.trim()}
-          className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-95 disabled:opacity-30 transition-all shrink-0"
+          className="p-3 bg-accent text-white rounded-xl hover:bg-accent-dim active:scale-95 disabled:opacity-30 transition-all shrink-0"
         >
           <Send size={18} />
         </button>
@@ -212,8 +214,8 @@ export default function AssistantPage() {
             className={clsx(
               'p-4 rounded-2xl transition-all active:scale-95 shrink-0',
               listening
-                ? 'bg-red-500 text-white shadow-lg shadow-red-200 animate-pulse'
-                : 'bg-slate-800 text-white hover:bg-slate-700 shadow-md',
+                ? 'bg-danger text-white animate-pulse shadow-lg'
+                : 'bg-surface-2 text-fg border border-divider hover:bg-surface-2 hover:border-accent/40 hover:text-accent-light',
             )}
             aria-label={listening ? 'Stop listening' : 'Start voice input'}
           >

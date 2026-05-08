@@ -8,19 +8,19 @@ import ProjectDetailPanel from '../components/crm/ProjectDetailPanel';
 const STATUSES: ProjectStatus[] = ['Lead', 'Active', 'Quoted', 'Won', 'Lost'];
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
-  Lead:   'border-slate-300 bg-slate-50 text-slate-600',
-  Active: 'border-blue-300 bg-blue-50 text-blue-700',
-  Quoted: 'border-yellow-300 bg-yellow-50 text-yellow-700',
-  Won:    'border-green-300 bg-green-50 text-green-700',
-  Lost:   'border-red-300 bg-red-50 text-red-600',
+  Lead:   'border-divider-strong bg-bg text-fg-muted',
+  Active: 'border-accent/40 bg-accent/10 text-accent-light',
+  Quoted: 'border-warning/40 bg-warning/10 text-warning',
+  Won:    'border-success/40 bg-success/10 text-success',
+  Lost:   'border-danger/40 bg-danger/10 text-danger',
 };
 
 const STATUS_HEADER: Record<ProjectStatus, string> = {
-  Lead:   'bg-slate-100 text-slate-700',
-  Active: 'bg-blue-100 text-blue-800',
-  Quoted: 'bg-yellow-100 text-yellow-800',
-  Won:    'bg-green-100 text-green-800',
-  Lost:   'bg-red-100 text-red-700',
+  Lead:   'bg-surface-1 text-fg',
+  Active: 'bg-accent/15 text-accent-light',
+  Quoted: 'bg-warning/15 text-warning',
+  Won:    'bg-success/15 text-success',
+  Lost:   'bg-danger/15 text-danger',
 };
 
 function fmt(n: number) { return `$${n >= 1000 ? (n / 1000).toFixed(0) + 'k' : n}`; }
@@ -32,16 +32,16 @@ function KanbanCard({ project, onClick }: { project: Project; onClick: () => voi
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md hover:border-blue-300 transition-all"
+      className="w-full text-left bg-surface rounded-lg border border-divider p-3 shadow-none hover:shadow-md hover:border-accent/40 transition-all"
     >
-      <p className="font-medium text-slate-800 text-sm leading-tight">{project.name}</p>
-      <p className="text-xs text-slate-500 mt-1">{customer?.company ?? '—'}</p>
+      <p className="font-medium text-fg text-sm leading-tight">{project.name}</p>
+      <p className="text-xs text-fg-muted mt-1">{customer?.company ?? '—'}</p>
       <div className="flex justify-between items-center mt-2">
-        <span className="text-xs font-semibold text-slate-700">{fmt(project.value)}</span>
-        <span className="text-xs text-slate-400">{daysAgo(project.createdDate)}d ago</span>
+        <span className="text-xs font-semibold text-fg">{fmt(project.value)}</span>
+        <span className="text-xs text-fg-faint">{daysAgo(project.createdDate)}d ago</span>
       </div>
       {project.anticipatedOrderDate && (
-        <p className="text-xs text-slate-400 mt-1">→ {project.anticipatedOrderDate}</p>
+        <p className="text-xs text-fg-faint mt-1">→ {project.anticipatedOrderDate}</p>
       )}
     </button>
   );
@@ -60,7 +60,7 @@ function KanbanBoard({ onSelect }: { onSelect: (p: Project) => void }) {
               <span>{status}</span>
               <span>{cols.length} · {fmt(total)}</span>
             </div>
-            <div className="space-y-2 p-2 bg-slate-100 rounded-b-lg min-h-[120px]">
+            <div className="space-y-2 p-2 bg-surface-1 rounded-b-lg min-h-[120px]">
               {cols.map((p) => <KanbanCard key={p.id} project={p} onClick={() => onSelect(p)} />)}
             </div>
           </div>
@@ -74,9 +74,9 @@ function ListView({ onSelect }: { onSelect: (p: Project) => void }) {
   const { projects, customers } = useAppStore();
   const sorted = [...projects].sort((a, b) => b.createdDate.localeCompare(a.createdDate));
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-divider bg-surface">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+        <thead className="bg-bg text-xs text-fg-muted uppercase tracking-wide">
           <tr>
             <th className="px-3 py-2 text-left">Customer</th>
             <th className="px-3 py-2 text-left">Project</th>
@@ -86,21 +86,21 @@ function ListView({ onSelect }: { onSelect: (p: Project) => void }) {
             <th className="px-3 py-2 text-left">Anticipated</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-divider">
           {sorted.map((p) => {
             const cust = customers.find((c) => c.id === p.customerId);
             return (
-              <tr key={p.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => onSelect(p)}>
-                <td className="px-3 py-2 text-slate-600">{cust?.company ?? '—'}</td>
-                <td className="px-3 py-2 font-medium text-slate-800">{p.name}</td>
+              <tr key={p.id} className="hover:bg-bg cursor-pointer" onClick={() => onSelect(p)}>
+                <td className="px-3 py-2 text-fg-muted">{cust?.company ?? '—'}</td>
+                <td className="px-3 py-2 font-medium text-fg">{p.name}</td>
                 <td className="px-3 py-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${STATUS_COLORS[p.status]}`}>
                     {p.status}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-right font-medium text-slate-700">{fmt(p.value)}</td>
-                <td className="px-3 py-2 text-slate-500 text-xs">{p.createdDate}</td>
-                <td className="px-3 py-2 text-slate-500 text-xs">{p.anticipatedOrderDate ?? '—'}</td>
+                <td className="px-3 py-2 text-right font-medium text-fg">{fmt(p.value)}</td>
+                <td className="px-3 py-2 text-fg-muted text-xs">{p.createdDate}</td>
+                <td className="px-3 py-2 text-fg-muted text-xs">{p.anticipatedOrderDate ?? '—'}</td>
               </tr>
             );
           })}
@@ -118,16 +118,16 @@ export default function CRMPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
-          <button onClick={() => setView('kanban')} className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${view === 'kanban' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+        <div className="flex rounded-lg border border-divider overflow-hidden">
+          <button onClick={() => setView('kanban')} className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${view === 'kanban' ? 'bg-accent text-white' : 'bg-surface text-fg-muted hover:bg-bg'}`}>
             <LayoutGrid size={14} /> Kanban
           </button>
-          <button onClick={() => setView('list')} className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${view === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+          <button onClick={() => setView('list')} className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${view === 'list' ? 'bg-accent text-white' : 'bg-surface text-fg-muted hover:bg-bg'}`}>
             <List size={14} /> List
           </button>
         </div>
         <div className="flex-1" />
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-sm rounded-lg hover:bg-accent-dim">
           <Plus size={14} /> New Project
         </button>
       </div>

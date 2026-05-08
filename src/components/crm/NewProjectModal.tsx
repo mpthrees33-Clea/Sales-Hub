@@ -42,18 +42,18 @@ export default function NewProjectModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">New Project</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-divider">
+          <h2 className="font-semibold text-fg">New Project</h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-surface-1"><X size={16} /></button>
         </div>
         <form onSubmit={submit} className="px-5 py-4 space-y-3">
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded">{error}</p>}
+          {error && <p className="text-xs text-danger bg-danger/10 px-3 py-2 rounded">{error}</p>}
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Customer *</label>
+            <label className="block text-xs font-medium text-fg-muted mb-1">Customer *</label>
             <select
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               value={form.customerId}
               onChange={(e) => set('customerId', e.target.value)}
             >
@@ -65,18 +65,18 @@ export default function NewProjectModal({ onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Project Name *</label>
+            <label className="block text-xs font-medium text-fg-muted mb-1">Project Name *</label>
             <input
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               value={form.name} onChange={(e) => set('name', e.target.value)}
               placeholder="e.g. Buckhead Tower Lobby"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Description *</label>
+            <label className="block text-xs font-medium text-fg-muted mb-1">Description *</label>
             <textarea
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
               rows={2} value={form.description} onChange={(e) => set('description', e.target.value)}
               placeholder="Scope, location, key details…"
             />
@@ -84,28 +84,28 @@ export default function NewProjectModal({ onClose }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Value ($) *</label>
+              <label className="block text-xs font-medium text-fg-muted mb-1">Value ($) *</label>
               <input
                 type="number" min="0" step="100"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={form.value} onChange={(e) => set('value', e.target.value)}
                 placeholder="50000"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Anticipated Order *</label>
+              <label className="block text-xs font-medium text-fg-muted mb-1">Anticipated Order *</label>
               <input
                 type="date"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={form.anticipatedOrderDate} onChange={(e) => set('anticipatedOrderDate', e.target.value)}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+            <label className="block text-xs font-medium text-fg-muted mb-1">Status</label>
             <select
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               value={form.status} onChange={(e) => set('status', e.target.value as any)}
             >
               {['Lead','Active','Quoted','Won','Lost'].map((s) => <option key={s}>{s}</option>)}
@@ -113,8 +113,8 @@ export default function NewProjectModal({ onClose }: Props) {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-100">Cancel</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create Project</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-fg-muted rounded-lg hover:bg-surface-1">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-dim">Create Project</button>
           </div>
         </form>
       </div>

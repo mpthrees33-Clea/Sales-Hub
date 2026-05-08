@@ -43,67 +43,67 @@ function AIToolsPanel({ onAttach }: { onAttach: (id: string) => void }) {
   ];
 
   return (
-    <div className="w-64 border-l border-slate-100 flex flex-col overflow-y-auto bg-slate-50">
-      <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-1.5">
-        <Zap size={14} className="text-blue-500" />
-        <span className="text-xs font-semibold text-slate-700">AI Tools</span>
+    <div className="w-64 border-l border-divider flex flex-col overflow-y-auto bg-bg">
+      <div className="px-3 py-2 border-b border-divider flex items-center gap-1.5">
+        <Zap size={14} className="text-accent-light" />
+        <span className="text-xs font-semibold text-fg">AI Tools</span>
       </div>
 
       {/* Product Lookup */}
-      <div className="px-3 py-3 border-b border-slate-100">
-        <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1"><Search size={11} /> Product Lookup</p>
-        <input className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+      <div className="px-3 py-3 border-b border-divider">
+        <p className="text-xs font-medium text-fg-muted mb-1.5 flex items-center gap-1"><Search size={11} /> Product Lookup</p>
+        <input className="w-full text-xs border border-divider rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent bg-surface"
           placeholder="Any name or brand…" value={lookup} onChange={(e) => setLookup(e.target.value)} />
         {lookupResults.map((p) => (
-          <div key={p.id} className="mt-1.5 bg-white border border-slate-200 rounded p-2 text-xs">
-            <p className="font-medium text-slate-700">{p.trinityName}</p>
-            <p className="text-slate-400">{p.category} · ${p.listPrice}/{p.unit}</p>
-            <p className="text-slate-400 truncate">{p.privateLabels.map((pl) => pl.brand).join(', ')}</p>
+          <div key={p.id} className="mt-1.5 bg-surface border border-divider rounded p-2 text-xs">
+            <p className="font-medium text-fg">{p.trinityName}</p>
+            <p className="text-fg-faint">{p.category} · ${p.listPrice}/{p.unit}</p>
+            <p className="text-fg-faint truncate">{p.privateLabels.map((pl) => pl.brand).join(', ')}</p>
           </div>
         ))}
       </div>
 
       {/* Attach Brochure */}
-      <div className="px-3 py-3 border-b border-slate-100">
-        <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1"><Paperclip size={11} /> Attach Brochure</p>
-        <input className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+      <div className="px-3 py-3 border-b border-divider">
+        <p className="text-xs font-medium text-fg-muted mb-1.5 flex items-center gap-1"><Paperclip size={11} /> Attach Brochure</p>
+        <input className="w-full text-xs border border-divider rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent bg-surface"
           placeholder="Search brochures…" value={brochureSearch} onChange={(e) => setBrochureSearch(e.target.value)} />
         {filteredBrochures.map((b) => (
           <button key={b.id} onClick={() => { onAttach(b.id); setBrochureSearch(''); }}
-            className="w-full text-left mt-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded hover:bg-blue-50 hover:border-blue-300 truncate text-slate-700">
+            className="w-full text-left mt-1 px-2 py-1.5 text-xs bg-surface border border-divider rounded hover:bg-accent/10 hover:border-accent/40 truncate text-fg">
             + {b.name}
           </button>
         ))}
       </div>
 
       {/* Quick Quote */}
-      <div className="px-3 py-3 border-b border-slate-100">
-        <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1"><Calculator size={11} /> Quick Quote</p>
-        <select className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 mb-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+      <div className="px-3 py-3 border-b border-divider">
+        <p className="text-xs font-medium text-fg-muted mb-1.5 flex items-center gap-1"><Calculator size={11} /> Quick Quote</p>
+        <select className="w-full text-xs border border-divider rounded px-2 py-1.5 mb-1.5 focus:outline-none focus:ring-1 focus:ring-accent bg-surface"
           value={quoteProduct} onChange={(e) => setQuoteProduct(e.target.value)}>
           <option value="">Select product…</option>
           {products.map((p) => <option key={p.id} value={p.id}>{p.trinityName}</option>)}
         </select>
-        <input type="number" className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+        <input type="number" className="w-full text-xs border border-divider rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent bg-surface"
           placeholder="Square footage" value={sqft} onChange={(e) => setSqft(e.target.value)} />
         {quoteResult && (
-          <div className="mt-1.5 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
-            <p className="text-blue-700 font-medium">{quoteResult.sqft} sq ft (w/ 10% waste)</p>
-            <p className="text-blue-800 font-bold">${quoteResult.total} list</p>
+          <div className="mt-1.5 bg-accent/10 border border-accent/30 rounded p-2 text-xs">
+            <p className="text-accent-light font-medium">{quoteResult.sqft} sq ft (w/ 10% waste)</p>
+            <p className="text-accent-light font-bold">${quoteResult.total} list</p>
           </div>
         )}
       </div>
 
       {/* Templates */}
       <div className="px-3 py-3">
-        <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1"><FileText size={11} /> Templates</p>
+        <p className="text-xs font-medium text-fg-muted mb-1.5 flex items-center gap-1"><FileText size={11} /> Templates</p>
         {TEMPLATES.map((t) => (
           <button key={t.keyword} onClick={() => navigator.clipboard?.writeText(t.body)}
-            className="w-full text-left px-2 py-1.5 text-xs bg-white border border-slate-200 rounded mb-1 hover:bg-blue-50 hover:border-blue-300 text-slate-700">
+            className="w-full text-left px-2 py-1.5 text-xs bg-surface border border-divider rounded mb-1 hover:bg-accent/10 hover:border-accent/40 text-fg">
             {t.label}
           </button>
         ))}
-        <p className="text-xs text-slate-400 mt-1">Click to copy to clipboard</p>
+        <p className="text-xs text-fg-faint mt-1">Click to copy to clipboard</p>
       </div>
     </div>
   );
@@ -123,25 +123,25 @@ function ComposePanel({ replyTo, attachedIds, onSend, onDraft }: {
 
   return (
     <div className="flex flex-col h-full p-4 space-y-2">
-      <input className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
         placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
-      <input className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
         placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
-      <textarea className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+      <textarea className="flex-1 text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
         placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} style={{ minHeight: 120 }} />
       {attachedIds.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {attachedIds.map((id) => {
             const b = brochures.find((br) => br.id === id);
-            return b ? <span key={id} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded flex items-center gap-1"><Paperclip size={10} /> {b.name}</span> : null;
+            return b ? <span key={id} className="text-xs bg-accent/15 text-accent-light px-2 py-0.5 rounded flex items-center gap-1"><Paperclip size={10} /> {b.name}</span> : null;
           })}
         </div>
       )}
       <div className="flex gap-2">
-        <button onClick={() => onSend(to, subject, body)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+        <button onClick={() => onSend(to, subject, body)} className="flex items-center gap-1 px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-dim">
           <Send size={13} /> Send
         </button>
-        <button onClick={() => onDraft(to, subject, body)} className="px-4 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-100 border border-slate-200">
+        <button onClick={() => onDraft(to, subject, body)} className="px-4 py-2 text-sm text-fg-muted rounded-lg hover:bg-surface-1 border border-divider">
           Save Draft
         </button>
       </div>
@@ -183,42 +183,42 @@ export default function EmailPage() {
   }
 
   return (
-    <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden" style={{ height: '75vh' }}>
+    <div className="flex rounded-lg border border-divider bg-surface overflow-hidden" style={{ height: '75vh' }}>
       {/* Folder nav */}
-      <div className="w-32 shrink-0 border-r border-slate-100 flex flex-col py-2">
+      <div className="w-32 shrink-0 border-r border-divider flex flex-col py-2">
         <button onClick={() => { setComposing(true); setReplyTo(undefined); setAttachedIds([]); }}
-          className="mx-2 mb-2 px-2 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700">
+          className="mx-2 mb-2 px-2 py-1.5 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent-dim">
           + Compose
         </button>
         {FOLDERS.map(({ key, label }) => (
           <button key={key} onClick={() => { setFolder(key); setSelected(null); setComposing(false); }}
-            className={clsx('flex justify-between items-center px-3 py-2 text-sm', folder === key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50')}>
+            className={clsx('flex justify-between items-center px-3 py-2 text-sm', folder === key ? 'bg-accent/10 text-accent-light font-medium' : 'text-fg-muted hover:bg-bg')}>
             <span>{label}</span>
-            {unread(key) > 0 && <span className="text-xs bg-blue-600 text-white rounded-full px-1.5">{unread(key)}</span>}
+            {unread(key) > 0 && <span className="text-xs bg-accent text-white rounded-full px-1.5">{unread(key)}</span>}
           </button>
         ))}
         <div className="flex-1" />
         <button onClick={() => setAiOpen((v) => !v)}
-          className="mx-2 mb-2 flex items-center gap-1 px-2 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">
-          <Zap size={11} className="text-blue-400" />
+          className="mx-2 mb-2 flex items-center gap-1 px-2 py-1.5 text-xs text-fg-muted border border-divider rounded-lg hover:bg-bg">
+          <Zap size={11} className="text-accent-light" />
           {aiOpen ? 'Hide AI' : 'AI Tools'}
         </button>
       </div>
 
       {/* Email list */}
-      <div className="w-60 shrink-0 border-r border-slate-100 overflow-y-auto">
+      <div className="w-60 shrink-0 border-r border-divider overflow-y-auto">
         {folderEmails.map((email) => (
           <button key={email.id} onClick={() => open(email)}
-            className={clsx('w-full text-left px-3 py-3 border-b border-slate-50 hover:bg-slate-50', selected?.id === email.id && 'bg-blue-50')}>
+            className={clsx('w-full text-left px-3 py-3 border-b border-divider hover:bg-bg', selected?.id === email.id && 'bg-accent/10')}>
             <div className="flex items-center gap-1">
-              {!email.isRead && <span className="w-1.5 h-1.5 bg-blue-600 rounded-full shrink-0" />}
-              {email.isStarred && <Star size={10} className="text-yellow-400 fill-yellow-400 shrink-0" />}
-              <span className={clsx('text-xs truncate flex-1', !email.isRead ? 'font-semibold text-slate-800' : 'text-slate-600')}>
+              {!email.isRead && <span className="w-1.5 h-1.5 bg-accent rounded-full shrink-0" />}
+              {email.isStarred && <Star size={10} className="text-warning fill-warning shrink-0" />}
+              <span className={clsx('text-xs truncate flex-1', !email.isRead ? 'font-semibold text-fg' : 'text-fg-muted')}>
                 {email.folder === 'sent' || email.folder === 'drafts' ? email.to[0] : email.fromName}
               </span>
             </div>
-            <p className="text-xs font-medium text-slate-700 truncate mt-0.5">{email.subject}</p>
-            <p className="text-xs text-slate-400">{email.date.slice(0, 10)}</p>
+            <p className="text-xs font-medium text-fg truncate mt-0.5">{email.subject}</p>
+            <p className="text-xs text-fg-faint">{email.date.slice(0, 10)}</p>
           </button>
         ))}
       </div>
@@ -232,30 +232,30 @@ export default function EmailPage() {
             <div className="p-5 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="font-semibold text-slate-800">{selected.subject}</h2>
-                  <p className="text-xs text-slate-500 mt-1"><strong>From:</strong> {selected.fromName} &lt;{selected.from}&gt;</p>
-                  <p className="text-xs text-slate-500"><strong>To:</strong> {selected.to.join(', ')}</p>
-                  <p className="text-xs text-slate-400">{selected.date.replace('T',' ').slice(0,16)}</p>
+                  <h2 className="font-semibold text-fg">{selected.subject}</h2>
+                  <p className="text-xs text-fg-muted mt-1"><strong>From:</strong> {selected.fromName} &lt;{selected.from}&gt;</p>
+                  <p className="text-xs text-fg-muted"><strong>To:</strong> {selected.to.join(', ')}</p>
+                  <p className="text-xs text-fg-faint">{selected.date.replace('T',' ').slice(0,16)}</p>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => updateEmail(selected.id, { isStarred: !selected.isStarred })} className="p-1 rounded hover:bg-slate-100">
-                    <Star size={16} className={selected.isStarred ? 'text-yellow-400 fill-yellow-400' : 'text-slate-300'} />
+                  <button onClick={() => updateEmail(selected.id, { isStarred: !selected.isStarred })} className="p-1 rounded hover:bg-surface-1">
+                    <Star size={16} className={selected.isStarred ? 'text-warning fill-warning' : 'text-fg-faint'} />
                   </button>
-                  <button onClick={reply} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600">Reply</button>
+                  <button onClick={reply} className="px-3 py-1.5 text-xs border border-divider rounded-lg hover:bg-bg text-fg-muted">Reply</button>
                 </div>
               </div>
               {selected.attachedBrochureIds.length > 0 && (
-                <div className="flex flex-wrap gap-2 py-2 border-y border-slate-100">
+                <div className="flex flex-wrap gap-2 py-2 border-y border-divider">
                   {selected.attachedBrochureIds.map((bid) => {
                     const b = brochures.find((br) => br.id === bid);
-                    return b ? <span key={bid} className="flex items-center gap-1 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded"><Paperclip size={11} /> {b.name}</span> : null;
+                    return b ? <span key={bid} className="flex items-center gap-1 text-xs bg-surface-1 text-fg-muted px-2 py-1 rounded"><Paperclip size={11} /> {b.name}</span> : null;
                   })}
                 </div>
               )}
-              <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{selected.body}</pre>
+              <pre className="text-sm text-fg whitespace-pre-wrap font-sans leading-relaxed">{selected.body}</pre>
             </div>
           ) : (
-            <p className="text-sm text-slate-400 text-center mt-16">Select an email to read</p>
+            <p className="text-sm text-fg-faint text-center mt-16">Select an email to read</p>
           )}
         </div>
 

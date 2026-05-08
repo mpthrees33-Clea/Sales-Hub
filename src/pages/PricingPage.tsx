@@ -3,13 +3,18 @@ import { useAppStore } from '../store/useAppStore';
 import { Search, ChevronDown } from 'lucide-react';
 
 const BRAND_COLORS: Record<string, string> = {
-  Armstrong: 'bg-red-100 text-red-700', COREtec: 'bg-blue-100 text-blue-700',
-  Shaw: 'bg-green-100 text-green-700', Mohawk: 'bg-purple-100 text-purple-700',
-  Pergo: 'bg-orange-100 text-orange-700', Mannington: 'bg-teal-100 text-teal-700',
-  Daltile: 'bg-slate-100 text-slate-600', Bruce: 'bg-amber-100 text-amber-700',
-  MSI: 'bg-cyan-100 text-cyan-700', Karndean: 'bg-pink-100 text-pink-700',
+  Armstrong:  'bg-danger/15 text-danger',
+  COREtec:    'bg-accent/15 text-accent-light',
+  Shaw:       'bg-success/15 text-success',
+  Mohawk:     'bg-accent/20 text-accent-light',
+  Pergo:      'bg-warning/15 text-warning',
+  Mannington: 'bg-accent/10 text-accent-light',
+  Daltile:    'bg-surface-1 text-fg-muted',
+  Bruce:      'bg-warning/20 text-warning',
+  MSI:        'bg-accent/15 text-accent-light',
+  Karndean:   'bg-success/20 text-success',
 };
-const brandColor = (b: string) => BRAND_COLORS[b] ?? 'bg-slate-100 text-slate-600';
+const brandColor = (b: string) => BRAND_COLORS[b] ?? 'bg-surface-1 text-fg-muted';
 
 // ── Price Sheet Tab ────────────────────────────────────────
 function PriceSheetTab() {
@@ -34,13 +39,13 @@ function PriceSheetTab() {
   return (
     <>
       <div className="relative">
-        <Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" />
-        <input className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <Search size={15} className="absolute left-2.5 top-2.5 text-fg-faint" />
+        <input className="w-full pl-8 pr-3 py-2 text-sm border border-divider rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
           placeholder="Search name, SKU, brand…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-x-auto rounded-lg border border-divider">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+          <thead className="bg-bg text-xs text-fg-muted uppercase tracking-wide">
             <tr>
               <th className="px-3 py-2 text-left w-6" />
               <th className="px-3 py-2 text-left">Trinity Name</th>
@@ -51,32 +56,32 @@ function PriceSheetTab() {
               <th className="px-3 py-2 text-left">Unit</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-divider">
             {productIds.map((pid) => {
               const entries = grouped[pid];
               const first = entries[0];
               const isOpen = expanded === pid;
               const margin = ((first.listPrice - first.netPrice) / first.listPrice * 100).toFixed(0);
               return [
-                <tr key={pid} className="hover:bg-slate-50 cursor-pointer" onClick={() => setExpanded(isOpen ? null : pid)}>
-                  <td className="px-3 py-2 text-slate-400"><ChevronDown size={13} className={`transition-transform ${isOpen ? '' : '-rotate-90'}`} /></td>
-                  <td className="px-3 py-2 font-medium text-slate-800">{first.trinityName}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-slate-500">{first.trinitySku}</td>
-                  <td className="px-3 py-2 text-right text-slate-700">${first.listPrice.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right text-green-700 font-medium">${first.netPrice.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right text-slate-500">{margin}%</td>
-                  <td className="px-3 py-2 text-slate-400 text-xs">{first.unit}</td>
+                <tr key={pid} className="hover:bg-bg cursor-pointer" onClick={() => setExpanded(isOpen ? null : pid)}>
+                  <td className="px-3 py-2 text-fg-faint"><ChevronDown size={13} className={`transition-transform ${isOpen ? '' : '-rotate-90'}`} /></td>
+                  <td className="px-3 py-2 font-medium text-fg">{first.trinityName}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-fg-muted">{first.trinitySku}</td>
+                  <td className="px-3 py-2 text-right text-fg">${first.listPrice.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right text-success font-medium">${first.netPrice.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right text-fg-muted">{margin}%</td>
+                  <td className="px-3 py-2 text-fg-faint text-xs">{first.unit}</td>
                 </tr>,
                 isOpen && entries.map((e) => (
-                  <tr key={e.id} className="bg-blue-50">
+                  <tr key={e.id} className="bg-accent/10">
                     <td className="px-3 py-1.5" />
                     <td colSpan={2} className="px-3 py-1.5">
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium mr-2 ${brandColor(e.privateLabelBrand)}`}>{e.privateLabelBrand}</span>
-                      <span className="text-xs text-slate-700">{e.privateLabelName}</span>
-                      <span className="text-xs text-slate-400 ml-2 font-mono">{e.privateLabelSku}</span>
+                      <span className="text-xs text-fg">{e.privateLabelName}</span>
+                      <span className="text-xs text-fg-faint ml-2 font-mono">{e.privateLabelSku}</span>
                     </td>
-                    <td className="px-3 py-1.5 text-right text-xs text-slate-600">${e.listPrice.toFixed(2)}</td>
-                    <td className="px-3 py-1.5 text-right text-xs text-green-700">${e.netPrice.toFixed(2)}</td>
+                    <td className="px-3 py-1.5 text-right text-xs text-fg-muted">${e.listPrice.toFixed(2)}</td>
+                    <td className="px-3 py-1.5 text-right text-xs text-success">${e.netPrice.toFixed(2)}</td>
                     <td colSpan={2} />
                   </tr>
                 )),
@@ -106,9 +111,9 @@ function CrossoverTab() {
   return (
     <>
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+        <Search size={16} className="absolute left-3 top-3 text-fg-faint" />
         <input
-          className="w-full pl-10 pr-3 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+          className="w-full pl-10 pr-3 py-3 text-sm border border-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-accent shadow-none"
           placeholder="Search any product name, brand name, or SKU…"
           value={query} onChange={(e) => setQuery(e.target.value)}
           autoFocus
@@ -116,28 +121,28 @@ function CrossoverTab() {
       </div>
 
       {query.length < 2 && (
-        <p className="text-center text-slate-400 text-sm py-12">Type any name — ours or theirs — to find the match</p>
+        <p className="text-center text-fg-faint text-sm py-12">Type any name — ours or theirs — to find the match</p>
       )}
 
       <div className="space-y-3">
         {results.map((p) => (
-          <div key={p.id} className="bg-white rounded-lg border border-slate-200 p-4">
+          <div key={p.id} className="bg-surface rounded-lg border border-divider p-4">
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Trinity side */}
               <div className="sm:w-48 shrink-0">
-                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Trinity</p>
-                <p className="font-semibold text-slate-800">{p.trinityName}</p>
-                <p className="text-xs font-mono text-slate-500">{p.trinitySku}</p>
-                <p className="text-xs text-slate-500 mt-1">{p.category}</p>
-                <p className="text-sm font-bold text-slate-700 mt-1">${p.listPrice}/{p.unit}</p>
-                <p className="text-xs text-green-600">Net: ${p.netPrice}</p>
+                <p className="text-xs font-semibold text-accent-light uppercase tracking-wide mb-1">Trinity</p>
+                <p className="font-semibold text-fg">{p.trinityName}</p>
+                <p className="text-xs font-mono text-fg-muted">{p.trinitySku}</p>
+                <p className="text-xs text-fg-muted mt-1">{p.category}</p>
+                <p className="text-sm font-bold text-fg mt-1">${p.listPrice}/{p.unit}</p>
+                <p className="text-xs text-success">Net: ${p.netPrice}</p>
               </div>
               {/* Private labels */}
               <div className="flex-1 overflow-x-auto">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Known As</p>
+                <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">Known As</p>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-slate-400 border-b border-slate-100">
+                    <tr className="text-fg-faint border-b border-divider">
                       <th className="text-left pb-1">Brand</th>
                       <th className="text-left pb-1">Product Name</th>
                       <th className="text-left pb-1 font-mono">SKU</th>
@@ -145,16 +150,16 @@ function CrossoverTab() {
                       <th className="text-right pb-1">Net</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-divider">
                     {p.privateLabels.map((pl, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
+                      <tr key={i} className="hover:bg-bg">
                         <td className="py-1.5 pr-2">
                           <span className={`px-1.5 py-0.5 rounded font-medium text-xs ${brandColor(pl.brand)}`}>{pl.brand}</span>
                         </td>
-                        <td className="py-1.5 pr-2 text-slate-700">{pl.productName}</td>
-                        <td className="py-1.5 pr-2 font-mono text-slate-400">{pl.sku}</td>
-                        <td className="py-1.5 text-right text-slate-600">${pl.listPrice?.toFixed(2) ?? '—'}</td>
-                        <td className="py-1.5 text-right text-green-600">${pl.netPrice?.toFixed(2) ?? '—'}</td>
+                        <td className="py-1.5 pr-2 text-fg">{pl.productName}</td>
+                        <td className="py-1.5 pr-2 font-mono text-fg-faint">{pl.sku}</td>
+                        <td className="py-1.5 text-right text-fg-muted">${pl.listPrice?.toFixed(2) ?? '—'}</td>
+                        <td className="py-1.5 text-right text-success">${pl.netPrice?.toFixed(2) ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -164,7 +169,7 @@ function CrossoverTab() {
           </div>
         ))}
         {query.length >= 2 && results.length === 0 && (
-          <p className="text-center text-slate-400 text-sm py-8">No products matched "{query}"</p>
+          <p className="text-center text-fg-faint text-sm py-8">No products matched "{query}"</p>
         )}
       </div>
     </>
@@ -186,23 +191,23 @@ function DistributorTab() {
           return !q || e.productName.toLowerCase().includes(q) || e.sku.toLowerCase().includes(q);
         });
         return (
-          <div key={dpl.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50"
+          <div key={dpl.id} className="bg-surface rounded-lg border border-divider overflow-hidden">
+            <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-bg"
               onClick={() => setOpen(isOpen ? null : dpl.id)}>
               <div>
-                <p className="font-semibold text-slate-700">{dpl.distributorName}</p>
-                <p className="text-xs text-slate-400">Effective: {dpl.effectiveDate} · {dpl.entries.length} items</p>
+                <p className="font-semibold text-fg">{dpl.distributorName}</p>
+                <p className="text-xs text-fg-faint">Effective: {dpl.effectiveDate} · {dpl.entries.length} items</p>
               </div>
-              <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+              <ChevronDown size={16} className={`text-fg-faint transition-transform ${isOpen ? '' : '-rotate-90'}`} />
             </button>
             {isOpen && (
-              <div className="border-t border-slate-100">
+              <div className="border-t border-divider">
                 <div className="px-4 py-2">
-                  <input className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  <input className="w-full text-xs border border-divider rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
                     placeholder="Filter entries…" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+                  <thead className="bg-bg text-xs text-fg-muted uppercase tracking-wide">
                     <tr>
                       <th className="px-4 py-2 text-left">Product</th>
                       <th className="px-4 py-2 text-left">SKU</th>
@@ -212,15 +217,15 @@ function DistributorTab() {
                       <th className="px-4 py-2 text-left">Unit</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-divider">
                     {filtered.map((e) => (
-                      <tr key={e.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 text-slate-700">{e.productName}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-500">{e.sku}</td>
-                        <td className="px-4 py-2 text-slate-500">{e.category}</td>
-                        <td className="px-4 py-2 text-right text-slate-600">${e.listPrice.toFixed(2)}</td>
-                        <td className="px-4 py-2 text-right text-green-700 font-medium">${e.dealerPrice.toFixed(2)}</td>
-                        <td className="px-4 py-2 text-slate-400 text-xs">{e.unit}</td>
+                      <tr key={e.id} className="hover:bg-bg">
+                        <td className="px-4 py-2 text-fg">{e.productName}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-fg-muted">{e.sku}</td>
+                        <td className="px-4 py-2 text-fg-muted">{e.category}</td>
+                        <td className="px-4 py-2 text-right text-fg-muted">${e.listPrice.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right text-success font-medium">${e.dealerPrice.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-fg-faint text-xs">{e.unit}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -247,10 +252,10 @@ export default function PricingPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-divider">
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === key ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === key ? 'border-accent text-accent-light' : 'border-transparent text-fg-muted hover:text-fg'}`}>
             {label}
           </button>
         ))}

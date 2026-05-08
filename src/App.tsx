@@ -15,7 +15,7 @@ export default function App() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-bg text-fg overflow-hidden">
       <Sidebar />
       <div
         className={clsx(

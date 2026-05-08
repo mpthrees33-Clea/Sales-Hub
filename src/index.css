@@ -6,25 +6,70 @@
   * {
     box-sizing: border-box;
   }
+  html, body, #root {
+    height: 100%;
+  }
   body {
-    @apply bg-slate-50 text-slate-800;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-bg text-fg;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: rgba(23, 122, 169, 0.35);
+    color: #fff;
+  }
+
+  /* Form controls — dark by default, no Tailwind class needed on each input */
+  input, textarea, select {
+    color-scheme: dark;
+    @apply bg-bg text-fg;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    background-color: transparent;
+    accent-color: theme('colors.accent.DEFAULT');
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-fg-faint;
+    opacity: 1;
+  }
+  select option {
+    @apply bg-surface text-fg;
+  }
+
+  button {
+    color: inherit;
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: #2c3a4f transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
+    background-color: #2c3a4f;
     border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #3d4f6b;
+  }
+
+  /* Subtle background grid for dashboards */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }
