@@ -1,8 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
-import { useAppStore } from './store/useAppStore';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
-import clsx from 'clsx';
+import VoiceButton from './components/voice/VoiceButton';
 import Dashboard from './pages/Dashboard';
 import BrochuresPage from './pages/BrochuresPage';
 import CRMPage from './pages/CRMPage';
@@ -12,16 +11,15 @@ import PricingPage from './pages/PricingPage';
 import AssistantPage from './pages/AssistantPage';
 
 export default function App() {
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const location = useLocation();
+  // Hide the floating voice button when the user is already on the
+  // full-screen Assistant page — same engine, would be redundant.
+  const hideVoiceButton = location.pathname === '/assistant';
 
   return (
     <div className="flex h-screen bg-bg text-fg overflow-hidden">
       <Sidebar />
-      <div
-        className={clsx(
-          'flex flex-col flex-1 min-w-0 transition-all duration-200',
-        )}
-      >
+      <div className="flex flex-col flex-1 min-w-0 transition-all duration-200">
         <Header />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <Routes>
@@ -35,6 +33,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      {!hideVoiceButton && <VoiceButton />}
     </div>
   );
 }

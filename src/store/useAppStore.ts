@@ -4,6 +4,9 @@ import type {
   Product, Customer, Project, SampleOrder,
   EmailMessage, Brochure, Catalog,
   PriceEntry, DistributorPriceList, AppSettings,
+  Rep, SalesLocation, EmailThread, EmailDraft,
+  Quote, Activity, GcSubEdge, DormantDigest,
+  ProjectExtensions,
 } from '../types';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -16,13 +19,21 @@ import {
   seedProducts, seedCustomers, seedProjects, seedSampleOrders,
   seedEmails, seedBrochures, seedCatalogs,
   seedPriceEntries, seedDistributorPriceLists,
+  seedReps, seedSalesLocations,
+  seedEmailThreads, seedEmailDrafts,
+  seedActivities, seedGcSubEdges, seedDormantDigests, seedQuotes,
 } from '../data/seedData';
+
+// Projects are stored as Project & ProjectExtensions so the new opportunity
+// fields are first-class. Existing pages that consume `Project` keep working
+// because every Project field is still present.
+type ExtendedProject = Project & ProjectExtensions;
 
 interface AppState {
   // Data
   products: Product[];
   customers: Customer[];
-  projects: Project[];
+  projects: ExtendedProject[];
   sampleOrders: SampleOrder[];
   emails: EmailMessage[];
   brochures: Brochure[];
@@ -30,12 +41,23 @@ interface AppState {
   priceEntries: PriceEntry[];
   distributorPriceLists: DistributorPriceList[];
 
+  // Foundation-slice entities
+  reps: Rep[];
+  salesLocations: SalesLocation[];
+  threads: EmailThread[];
+  drafts: EmailDraft[];
+  activities: Activity[];
+  gcSubEdges: GcSubEdge[];
+  dormantDigests: DormantDigest[];
+  quotes: Quote[];
+
   // Settings
   settings: AppSettings;
 
   // UI
   sidebarOpen: boolean;
   selectedProjectId: string | null;
+  currentRepId: string;        // who am I right now (dev-mode switchable)
 
   // Actions — Products
   addProduct: (p: Product) => void;
@@ -48,8 +70,8 @@ interface AppState {
   deleteCustomer: (id: string) => void;
 
   // Actions — Projects
-  addProject: (p: Project) => void;
-  updateProject: (id: string, patch: Partial<Project>) => void;
+  addProject: (p: ExtendedProject) => void;
+  updateProject: (id: string, patch: Partial<ExtendedProject>) => void;
   deleteProject: (id: string) => void;
 
   // Actions — Sample Orders
@@ -79,6 +101,31 @@ interface AppState {
   // Actions — Settings
   updateSettings: (patch: Partial<AppSettings>) => void;
 
+  // Actions — Reps / Locations
+  setCurrentRepId: (id: string) => void;
+
+  // Actions — Email Threads
+  addThread: (t: EmailThread) => void;
+  updateThread: (id: string, patch: Partial<EmailThread>) => void;
+
+  // Actions — Drafts (auto-generated reply scaffolds)
+  addDraft: (d: EmailDraft) => void;
+  updateDraft: (id: string, patch: Partial<EmailDraft>) => void;
+  deleteDraft: (id: string) => void;
+
+  // Actions — Activities
+  addActivity: (a: Activity) => void;
+
+  // Actions — GC↔Sub edges
+  addGcSubEdge: (e: GcSubEdge) => void;
+
+  // Actions — Dormant digests
+  addDormantDigest: (d: DormantDigest) => void;
+
+  // Actions — Quotes
+  addQuote: (q: Quote) => void;
+  updateQuote: (id: string, patch: Partial<Quote>) => void;
+
   // Actions — UI
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -86,6 +133,34 @@ interface AppState {
 
   // Utility
   lookupProductByAnyName: (query: string) => Product | undefined;
+}
+
+// Backfill defaults for any Project lacking ProjectExtensions fields. Used by
+// the v2→v3 migration so existing persisted state gets opportunity-shaped
+// fields without losing user data.
+function backfillProjectExtensions(p: Project & Partial<ProjectExtensions>): ExtendedProject {
+  return {
+    ...p,
+    opportunityId: p.opportunityId ?? `OPP-LEG-${p.id.toUpperCase()}`,
+    salesRepId: p.salesRepId ?? 'rep-sarah',
+    salesLocationId: p.salesLocationId ?? '310',
+    projectType: p.projectType ?? 'other',
+    opportunityStatus:
+      p.opportunityStatus ??
+      (p.status === 'Won' ? 'won' : p.status === 'Lost' ? 'lost' : 'active'),
+    opportunityStage:
+      p.opportunityStage ??
+      (p.status === 'Lead' ? 'lead_qualification'
+        : p.status === 'Bidding' ? 'bidding'
+        : p.status === 'Won' ? 'orders_placed'
+        : p.status === 'Lost' ? 'closed'
+        : 'design'),
+    nextStep: p.nextStep ?? '',
+    updatedDate: p.updatedDate ?? p.createdDate,
+    jobLocation: p.jobLocation ?? p.address,
+    bidders: p.bidders ?? [],
+    lastTouchAt: p.lastTouchAt ?? `${p.createdDate}T12:00:00Z`,
+  };
 }
 
 export const useAppStore = create<AppState>()(
@@ -101,9 +176,18 @@ export const useAppStore = create<AppState>()(
       catalogs: seedCatalogs,
       priceEntries: seedPriceEntries,
       distributorPriceLists: seedDistributorPriceLists,
+      reps: seedReps,
+      salesLocations: seedSalesLocations,
+      threads: seedEmailThreads,
+      drafts: seedEmailDrafts,
+      activities: seedActivities,
+      gcSubEdges: seedGcSubEdges,
+      dormantDigests: seedDormantDigests,
+      quotes: seedQuotes,
       settings: DEFAULT_SETTINGS,
       sidebarOpen: true,
       selectedProjectId: null,
+      currentRepId: seedReps.find((r) => r.isCurrentUser)?.id ?? 'rep-sarah',
 
       // Products
       addProduct: (p) => set((s) => ({ products: [...s.products, p] })),
@@ -120,9 +204,13 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ customers: s.customers.filter((c) => c.id !== id) })),
 
       // Projects
-      addProject: (p) => set((s) => ({ projects: [...s.projects, p] })),
+      addProject: (p) => set((s) => ({ projects: [...s.projects, backfillProjectExtensions(p)] })),
       updateProject: (id, patch) =>
-        set((s) => ({ projects: s.projects.map((p) => p.id === id ? { ...p, ...patch } : p) })),
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === id ? { ...p, ...patch, updatedDate: new Date().toISOString() } : p,
+          ),
+        })),
       deleteProject: (id) =>
         set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
 
@@ -163,6 +251,39 @@ export const useAppStore = create<AppState>()(
       updateSettings: (patch) =>
         set((s) => ({ settings: { ...s.settings, ...patch } })),
 
+      // Reps / locations
+      setCurrentRepId: (id) => set({ currentRepId: id }),
+
+      // Email threads
+      addThread: (t) => set((s) => ({ threads: [...s.threads, t] })),
+      updateThread: (id, patch) =>
+        set((s) => ({ threads: s.threads.map((t) => t.id === id ? { ...t, ...patch } : t) })),
+
+      // Drafts
+      addDraft: (d) => set((s) => ({ drafts: [...s.drafts, d] })),
+      updateDraft: (id, patch) =>
+        set((s) => ({
+          drafts: s.drafts.map((d) =>
+            d.id === id ? { ...d, ...patch, updatedAt: new Date().toISOString() } : d,
+          ),
+        })),
+      deleteDraft: (id) =>
+        set((s) => ({ drafts: s.drafts.filter((d) => d.id !== id) })),
+
+      // Activities
+      addActivity: (a) => set((s) => ({ activities: [...s.activities, a] })),
+
+      // GC↔Sub edges
+      addGcSubEdge: (e) => set((s) => ({ gcSubEdges: [...s.gcSubEdges, e] })),
+
+      // Dormant digests
+      addDormantDigest: (d) => set((s) => ({ dormantDigests: [...s.dormantDigests, d] })),
+
+      // Quotes
+      addQuote: (q) => set((s) => ({ quotes: [...s.quotes, q] })),
+      updateQuote: (id, patch) =>
+        set((s) => ({ quotes: s.quotes.map((q) => q.id === id ? { ...q, ...patch } : q) })),
+
       // UI
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -187,15 +308,39 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 2,
-      // Migrate persisted state (e.g. rename 'Quoted' → 'Bidding')
+      version: 3,
+      // Migrate persisted state across schema versions.
+      //   v1 → v2: 'Quoted' → 'Bidding' status rename
+      //   v2 → v3: backfill new opportunity-shaped fields on projects;
+      //            seed new entity arrays (reps, locations, threads, etc.)
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
+
+        // v1 → v2 fixup (idempotent — safe to re-run)
         if (Array.isArray(persisted.projects)) {
           persisted.projects = persisted.projects.map((p: any) =>
-            p?.status === 'Quoted' ? { ...p, status: 'Bidding' } : p
+            p?.status === 'Quoted' ? { ...p, status: 'Bidding' } : p,
           );
         }
+
+        // v2 → v3: backfill ProjectExtensions
+        if (Array.isArray(persisted.projects)) {
+          persisted.projects = persisted.projects.map(backfillProjectExtensions);
+        }
+
+        // v2 → v3: seed new entity arrays if missing
+        if (!persisted.reps) persisted.reps = seedReps;
+        if (!persisted.salesLocations) persisted.salesLocations = seedSalesLocations;
+        if (!persisted.threads) persisted.threads = seedEmailThreads;
+        if (!persisted.drafts) persisted.drafts = seedEmailDrafts;
+        if (!persisted.activities) persisted.activities = seedActivities;
+        if (!persisted.gcSubEdges) persisted.gcSubEdges = seedGcSubEdges;
+        if (!persisted.dormantDigests) persisted.dormantDigests = seedDormantDigests;
+        if (!persisted.quotes) persisted.quotes = seedQuotes;
+        if (!persisted.currentRepId) {
+          persisted.currentRepId = seedReps.find((r) => r.isCurrentUser)?.id ?? 'rep-sarah';
+        }
+
         if (!persisted.settings) persisted.settings = DEFAULT_SETTINGS;
         return persisted;
       },
@@ -210,7 +355,16 @@ export const useAppStore = create<AppState>()(
         catalogs: state.catalogs,
         priceEntries: state.priceEntries,
         distributorPriceLists: state.distributorPriceLists,
+        reps: state.reps,
+        salesLocations: state.salesLocations,
+        threads: state.threads,
+        drafts: state.drafts,
+        activities: state.activities,
+        gcSubEdges: state.gcSubEdges,
+        dormantDigests: state.dormantDigests,
+        quotes: state.quotes,
         settings: state.settings,
+        currentRepId: state.currentRepId,
       }),
     }
   )

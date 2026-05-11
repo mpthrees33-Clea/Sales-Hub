@@ -2,6 +2,9 @@ import type {
   Customer, Product, Brochure, Catalog,
   Project, SampleOrder, EmailMessage,
   PriceEntry, DistributorPriceList,
+  Rep, SalesLocation, EmailThread, EmailDraft,
+  Quote, Activity, GcSubEdge, DormantDigest,
+  ProjectExtensions,
 } from '../types';
 
 // ── CUSTOMERS ────────────────────────────────────────────────
@@ -131,6 +134,31 @@ export const seedCustomers: Customer[] = [
       { id: 'c10-s1', label: 'HQ', address: '1600 Howell Mill Rd', city: 'Atlanta', state: 'GA', zip: '30318', isDefault: true },
     ],
     createdDate: '2024-08-20',
+  },
+  {
+    id: 'c11', name: 'Diana Park', company: 'Atlantic Capital Developers', type: 'Contractor',
+    email: 'diana@atlcapital.com', phone: '404-555-1101',
+    billingAddress: '3344 Peachtree Rd NE', billingCity: 'Atlanta', billingState: 'GA', billingZip: '30326',
+    contacts: [
+      { id: 'c11-ct1', name: 'Diana Park', title: 'VP Construction', email: 'diana@atlcapital.com', phone: '404-555-1101', isPrimary: true },
+      { id: 'c11-ct2', name: 'James Wu', title: 'Project Director', email: 'jwu@atlcapital.com', phone: '404-555-1102', isPrimary: false },
+    ],
+    shipToAddresses: [
+      { id: 'c11-s1', label: 'HQ', address: '3344 Peachtree Rd NE', city: 'Atlanta', state: 'GA', zip: '30326', isDefault: true },
+    ],
+    createdDate: '2024-08-12',
+  },
+  {
+    id: 'c12', name: 'Marcus Reilly', company: 'Reilly Residence', type: 'Homeowner',
+    email: 'mreilly@gmail.com', phone: '404-555-1201',
+    billingAddress: '1065 Peachtree St NE Unit PH', billingCity: 'Atlanta', billingState: 'GA', billingZip: '30309',
+    contacts: [
+      { id: 'c12-ct1', name: 'Marcus Reilly', title: 'Owner', email: 'mreilly@gmail.com', phone: '404-555-1201', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c12-s1', label: 'Residence', address: '1065 Peachtree St NE Unit PH', city: 'Atlanta', state: 'GA', zip: '30309', isDefault: true },
+    ],
+    createdDate: '2025-03-10',
   },
 ];
 
@@ -296,7 +324,10 @@ export const seedCatalogs: Catalog[] = [
 ];
 
 // ── PROJECTS ──────────────────────────────────────────────────
-export const seedProjects: Project[] = [
+// Type includes ProjectExtensions so the new opportunity-shaped fields
+// (salesRepId, projectType, opportunityStage, etc.) are populated on seed.
+// Existing pages that read `Project` keep working — extensions are optional.
+export const seedProjects: (Project & ProjectExtensions)[] = [
   {
     id: 'pr1', customerId: 'c1', name: 'Buckhead High-Rise Lobby', status: 'Active',
     description: 'Full lobby and corridor flooring for 24-story luxury residential tower',
@@ -304,6 +335,14 @@ export const seedProjects: Project[] = [
     value: 185000, productIds: ['p2', 'p4'], sampleOrderIds: ['so1'],
     notes: [{ id: 'n1', date: '2025-03-01', text: 'Client approved SPC samples', author: 'Sarah T.' }],
     createdDate: '2025-02-15', anticipatedOrderDate: '2025-05-01',
+    // Extensions
+    opportunityId: 'OPP-2025-0142', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'multifamily', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Submit formal SPC quote for 8,200 sqft',
+    updatedDate: '2025-04-10', architecturalFirmId: 'c3', gcCustomerId: 'c1',
+    developerCustomerId: 'c11', jobLocation: 'Atlanta, GA',
+    bidders: [{ id: 'bid-1', customerId: 'c1', quotedDate: '2025-03-15', quotedAmount: 178000 }],
+    lastTouchAt: '2025-04-10T09:22:00Z',
   },
   {
     id: 'pr2', customerId: 'c2', name: 'Midtown Penthouse Renovation', status: 'Bidding',
@@ -312,6 +351,13 @@ export const seedProjects: Project[] = [
     value: 42000, productIds: ['p3', 'p7'], sampleOrderIds: ['so2'],
     notes: [],
     createdDate: '2025-03-10', anticipatedOrderDate: '2025-06-15',
+    opportunityId: 'OPP-2025-0156', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'single_family', opportunityStatus: 'active', opportunityStage: 'design',
+    nextStep: 'Follow up on sample feedback',
+    updatedDate: '2025-03-22', architecturalFirmId: 'c2',
+    endUserCustomerId: 'c12', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2025-03-22T11:00:00Z',
   },
   {
     id: 'pr3', customerId: 'c3', name: 'Marietta Office Park', status: 'Lead',
@@ -320,6 +366,12 @@ export const seedProjects: Project[] = [
     value: 95000, productIds: ['p1', 'p6'], sampleOrderIds: [],
     notes: [],
     createdDate: '2025-04-01', anticipatedOrderDate: '2025-08-01',
+    opportunityId: 'OPP-2025-0188', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'corporate', opportunityStatus: 'active', opportunityStage: 'lead_qualification',
+    nextStep: 'Send commercial catalog and schedule lunch & learn',
+    updatedDate: '2025-04-01', architecturalFirmId: 'c3',
+    jobLocation: 'Marietta, GA', bidders: [],
+    lastTouchAt: '2025-04-01T10:30:00Z',
   },
   {
     id: 'pr4', customerId: 'c4', name: 'Kim Floors Showroom Remodel', status: 'Won',
@@ -328,6 +380,12 @@ export const seedProjects: Project[] = [
     value: 12500, productIds: ['p1', 'p2', 'p3', 'p4', 'p5'], sampleOrderIds: [],
     notes: [{ id: 'n2', date: '2025-02-01', text: 'PO received, scheduling install', author: 'Sarah T.' }],
     createdDate: '2025-01-20', anticipatedOrderDate: '2025-03-01', closingDate: '2025-03-28',
+    opportunityId: 'OPP-2025-0098', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'retail', opportunityStatus: 'won', opportunityStage: 'orders_placed',
+    nextStep: 'Schedule install with Sandra',
+    updatedDate: '2025-03-28', endUserCustomerId: 'c4', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2025-03-28T15:00:00Z',
   },
   {
     id: 'pr5', customerId: 'c5', name: 'Savannah Historic Renovation', status: 'Active',
@@ -336,6 +394,12 @@ export const seedProjects: Project[] = [
     value: 28000, productIds: ['p9', 'p7'], sampleOrderIds: [],
     notes: [],
     createdDate: '2025-03-20', anticipatedOrderDate: '2025-06-01',
+    opportunityId: 'OPP-2025-0173', salesRepId: 'rep-derek', salesLocationId: '410',
+    projectType: 'hospitality', opportunityStatus: 'active', opportunityStage: 'design',
+    nextStep: 'Confirm cork order qty',
+    updatedDate: '2025-04-02', gcCustomerId: 'c5', jobLocation: 'Savannah, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-02T13:30:00Z',
   },
   {
     id: 'pr6', customerId: 'c7', name: 'Macon Medical Office Build', status: 'Bidding',
@@ -344,6 +408,12 @@ export const seedProjects: Project[] = [
     value: 67000, productIds: ['p8', 'p6'], sampleOrderIds: [],
     notes: [],
     createdDate: '2025-04-05', anticipatedOrderDate: '2025-07-15',
+    opportunityId: 'OPP-2025-0195', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'healthcare', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Submit LVT spec to Beth at Stafford',
+    updatedDate: '2025-04-08', gcCustomerId: 'c7', jobLocation: 'Macon, GA',
+    bidders: [{ id: 'bid-2', customerId: 'c7', quotedDate: '2025-04-08', quotedAmount: 64500 }],
+    lastTouchAt: '2025-04-08T09:15:00Z',
   },
   {
     id: 'pr7', customerId: 'c8', name: 'Atlanta Mixed-Use Development', status: 'Lead',
@@ -352,6 +422,13 @@ export const seedProjects: Project[] = [
     value: 310000, productIds: ['p1', 'p2', 'p4', 'p6'], sampleOrderIds: [],
     notes: [],
     createdDate: '2025-04-10', anticipatedOrderDate: '2026-01-01',
+    opportunityId: 'OPP-2025-0210', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'mixed_use', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Submit RFP pricing by April 25',
+    updatedDate: '2025-04-11', architecturalFirmId: 'c8',
+    developerCustomerId: 'c10', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-11T08:15:00Z',
   },
   {
     id: 'pr8', customerId: 'c10', name: 'Howell Mill Townhomes', status: 'Lost',
@@ -360,6 +437,184 @@ export const seedProjects: Project[] = [
     value: 54000, productIds: ['p1'], sampleOrderIds: [],
     notes: [{ id: 'n3', date: '2025-02-28', text: 'Lost to competitor — price gap', author: 'Sarah T.' }],
     createdDate: '2025-01-15', anticipatedOrderDate: '2025-04-01', closingDate: '2025-03-01',
+    opportunityId: 'OPP-2025-0085', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'multifamily', opportunityStatus: 'lost', opportunityStage: 'closed',
+    nextStep: 'Maintain relationship for next project',
+    updatedDate: '2025-03-01', developerCustomerId: 'c10', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2025-03-01T12:00:00Z',
+  },
+
+  // ── Additional projects: dormant + active mix across reps ──
+  {
+    id: 'pr9', customerId: 'c3', name: 'Cobb Senior Living Phase II', status: 'Bidding',
+    description: '180-unit senior living community, common areas + units',
+    address: '2200 Roswell Rd, Marietta, GA 30062',
+    value: 220000, productIds: ['p1', 'p6'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-11-15', anticipatedOrderDate: '2025-09-01',
+    opportunityId: 'OPP-2024-0421', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'multifamily', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Re-engage — quiet since November',
+    updatedDate: '2024-11-20', architecturalFirmId: 'c3', jobLocation: 'Marietta, GA',
+    bidders: [],
+    lastTouchAt: '2024-11-20T14:00:00Z',  // DORMANT
+  },
+  {
+    id: 'pr10', customerId: 'c8', name: 'Gwinnett County Library Renovation', status: 'Lead',
+    description: 'Public library renovation, 12,000 sqft, government spec',
+    address: '1001 Lawrenceville Hwy, Lawrenceville, GA 30046',
+    value: 88000, productIds: ['p4', 'p6'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-10-08', anticipatedOrderDate: '2025-12-01',
+    opportunityId: 'OPP-2024-0388', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'government', opportunityStatus: 'active', opportunityStage: 'lead_qualification',
+    nextStep: 'Send public-sector pricing structure',
+    updatedDate: '2024-10-15', architecturalFirmId: 'c8', jobLocation: 'Lawrenceville, GA',
+    bidders: [],
+    lastTouchAt: '2024-10-15T10:00:00Z',  // DORMANT
+  },
+  {
+    id: 'pr11', customerId: 'c2', name: 'Inman Park Boutique Hotel', status: 'Active',
+    description: '32-room boutique hotel, lobby + corridors + 4 suites',
+    address: '895 Edgewood Ave NE, Atlanta, GA 30307',
+    value: 140000, productIds: ['p3', 'p9', 'p4'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-09-03', anticipatedOrderDate: '2025-08-01',
+    opportunityId: 'OPP-2024-0345', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'hospitality', opportunityStatus: 'active', opportunityStage: 'design',
+    nextStep: 'Reconnect with Priya on revised palette',
+    updatedDate: '2024-12-10', architecturalFirmId: 'c2', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2024-12-10T16:45:00Z',  // DORMANT
+  },
+  {
+    id: 'pr12', customerId: 'c1', name: 'Vinings Class A Office Tower', status: 'Bidding',
+    description: '32-story Class A office tower, lobby + amenity floors',
+    address: '2849 Paces Ferry Rd, Atlanta, GA 30339',
+    value: 480000, productIds: ['p4', 'p1', 'p6'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-08-20', anticipatedOrderDate: '2026-03-01',
+    opportunityId: 'OPP-2024-0312', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'corporate', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Awaiting developer approval on shortlist',
+    updatedDate: '2025-01-15', architecturalFirmId: 'c8',
+    gcCustomerId: 'c1', developerCustomerId: 'c11', jobLocation: 'Atlanta, GA',
+    bidders: [{ id: 'bid-3', customerId: 'c1', quotedDate: '2024-12-15', quotedAmount: 472000 }],
+    lastTouchAt: '2025-01-15T11:30:00Z',  // DORMANT
+  },
+  {
+    id: 'pr13', customerId: 'c6', name: 'Augusta Riverwalk Condos', status: 'Active',
+    description: '120-unit luxury condo development, river-facing units',
+    address: '1 10th St, Augusta, GA 30901',
+    value: 195000, productIds: ['p1', 'p3'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2025-02-08', anticipatedOrderDate: '2025-10-01',
+    opportunityId: 'OPP-2025-0118', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'multifamily', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Send revised quote with qty discount',
+    updatedDate: '2025-04-05', architecturalFirmId: 'c6', jobLocation: 'Augusta, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-05T14:20:00Z',
+  },
+  {
+    id: 'pr14', customerId: 'c7', name: 'Macon Central High Renovation', status: 'Lead',
+    description: 'High school commons + cafeteria flooring replacement',
+    address: '2155 Napier Ave, Macon, GA 31204',
+    value: 65000, productIds: ['p1', 'p8'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2025-03-25', anticipatedOrderDate: '2025-07-01',
+    opportunityId: 'OPP-2025-0167', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'education', opportunityStatus: 'active', opportunityStage: 'lead_qualification',
+    nextStep: 'Schedule site walkthrough with Ray',
+    updatedDate: '2025-04-09', gcCustomerId: 'c7', jobLocation: 'Macon, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-09T08:30:00Z',
+  },
+  {
+    id: 'pr15', customerId: 'c9', name: 'Marietta Tate Showroom Refresh', status: 'Active',
+    description: 'Existing showroom refresh — Tate wants Trinity-branded displays',
+    address: '750 Dallas Hwy, Marietta, GA 30064',
+    value: 18500, productIds: ['p1', 'p3', 'p5'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-10-30', anticipatedOrderDate: '2025-05-15',
+    opportunityId: 'OPP-2024-0402', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'retail', opportunityStatus: 'active', opportunityStage: 'design',
+    nextStep: 'Reconfirm display product mix',
+    updatedDate: '2024-12-22', endUserCustomerId: 'c9', jobLocation: 'Marietta, GA',
+    bidders: [],
+    lastTouchAt: '2024-12-22T11:00:00Z',  // DORMANT
+  },
+  {
+    id: 'pr16', customerId: 'c5', name: 'Savannah Coastal Resort Cabanas', status: 'Bidding',
+    description: 'New cabana cluster + spa, 14,000 sqft of cork + tile',
+    address: '500 Tybee Rd, Savannah, GA 31410',
+    value: 92000, productIds: ['p9', 'p4'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2025-01-22', anticipatedOrderDate: '2025-08-15',
+    opportunityId: 'OPP-2025-0102', salesRepId: 'rep-derek', salesLocationId: '410',
+    projectType: 'hospitality', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Finalize cork qty with developer',
+    updatedDate: '2025-04-03', gcCustomerId: 'c5', jobLocation: 'Tybee Island, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-03T15:30:00Z',
+  },
+  {
+    id: 'pr17', customerId: 'c10', name: 'Buckhead Luxury Condos', status: 'Lead',
+    description: '48-unit luxury condo tower, all-in flooring package',
+    address: '3290 Northside Pkwy NW, Atlanta, GA 30327',
+    value: 380000, productIds: ['p3', 'p7', 'p4'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2025-04-08', anticipatedOrderDate: '2025-11-01',
+    opportunityId: 'OPP-2025-0205', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'multifamily', opportunityStatus: 'active', opportunityStage: 'lead_qualification',
+    nextStep: 'Spec meeting with developer team',
+    updatedDate: '2025-04-08', developerCustomerId: 'c10', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-08T10:00:00Z',
+  },
+  {
+    id: 'pr18', customerId: 'c6', name: 'Augusta Federal Building Lobby', status: 'Bidding',
+    description: 'Federal building lobby renovation, government spec, GSA-compliant',
+    address: '600 Reynolds St, Augusta, GA 30901',
+    value: 145000, productIds: ['p4', 'p6'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-12-01', anticipatedOrderDate: '2025-06-30',
+    opportunityId: 'OPP-2024-0455', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'government', opportunityStatus: 'active', opportunityStage: 'bidding',
+    nextStep: 'Submit GSA paperwork',
+    updatedDate: '2025-01-10', architecturalFirmId: 'c6', jobLocation: 'Augusta, GA',
+    bidders: [],
+    lastTouchAt: '2025-01-10T09:00:00Z',  // DORMANT
+  },
+  {
+    id: 'pr19', customerId: 'c1', name: 'Decatur Townhome Cluster', status: 'Lead',
+    description: '36 townhomes, LVP throughout common areas + units',
+    address: '450 W Trinity Pl, Decatur, GA 30030',
+    value: 110000, productIds: ['p1'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-09-18', anticipatedOrderDate: '2025-10-15',
+    opportunityId: 'OPP-2024-0356', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'multifamily', opportunityStatus: 'active', opportunityStage: 'lead_qualification',
+    nextStep: 'Try to re-engage GC',
+    updatedDate: '2024-11-04', gcCustomerId: 'c1', jobLocation: 'Decatur, GA',
+    bidders: [],
+    lastTouchAt: '2024-11-04T13:15:00Z',  // DORMANT
+  },
+  {
+    id: 'pr20', customerId: 'c11', name: 'Sandy Springs Corporate Campus', status: 'Active',
+    description: 'New 4-building corporate campus, 240,000 sqft total',
+    address: '6100 Lake Forrest Dr, Sandy Springs, GA 30328',
+    value: 650000, productIds: ['p1', 'p6', 'p4'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-12-15', anticipatedOrderDate: '2026-06-01',
+    opportunityId: 'OPP-2024-0478', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'corporate', opportunityStatus: 'active', opportunityStage: 'design',
+    nextStep: 'Awaiting architect spec finalization',
+    updatedDate: '2025-04-04', architecturalFirmId: 'c8',
+    developerCustomerId: 'c11', jobLocation: 'Sandy Springs, GA',
+    bidders: [],
+    lastTouchAt: '2025-04-04T11:30:00Z',
   },
 ];
 
@@ -390,17 +645,271 @@ export const seedSampleOrders: SampleOrder[] = [
 ];
 
 // ── EMAILS ────────────────────────────────────────────────────
+// Diverse received emails for the email AI demo. Covers every intent the
+// auto-draft pipeline classifies: pricing_request, spec_sheet_request,
+// scheduling, new_lead, follow_up, dormant_reply, sample_request, general.
+// Some senders match existing customers (link to projects in CRM); others
+// are new addresses (triggers new-project detection prompt).
 export const seedEmails: EmailMessage[] = [
+  // ── PRICING REQUESTS (quote-gating demo) ───────────────────
   {
     id: 'e1', folder: 'inbox', isRead: false, isStarred: true,
     from: 'marcus@webbconstruction.com', fromName: 'Marcus Webb',
     to: ['sarah@trinitysurfaces.com'],
     subject: 'Re: Buckhead Lobby — SPC approval',
-    body: 'Sarah,\n\nWe reviewed the BlueSky SPC samples with the developer and got approval. Please send a formal quote for 8,200 sqft.\n\nThanks,\nMarcus',
+    body: 'Sarah,\n\nWe reviewed the BlueSky SPC samples with the developer and got approval. Please send a formal quote for 8,200 sqft, 9"x60" planks, embossed finish, color TBD between Stone Grey and Warm Walnut.\n\nThanks,\nMarcus',
     date: '2025-04-10T09:22:00Z', attachedBrochureIds: [],
   },
   {
-    id: 'e2', folder: 'sent', isRead: true, isStarred: false,
+    id: 'e2', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'beth@staffordbuild.com', fromName: 'Beth Stafford',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Macon Medical — LVT pricing needed',
+    body: 'Sarah,\n\nNeed pricing on AquaShield LVT for the Macon Medical Office. About 4,800 sqft total. Healthcare spec, so satin finish only. Need by Friday.\n\nBeth',
+    date: '2025-04-08T09:15:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e3', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'janet@oseiarch.com', fromName: 'Janet Osei',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Mixed-Use Development — flooring RFP',
+    body: 'Sarah,\n\nWe are issuing an RFP for a 60,000 sqft mixed-use development on Howell Mill. Please submit pricing for LVP, SPC, tile, and commercial carpet by April 25.\n\nDeveloper is Hines Property Group. Architect of record is our firm.\n\nJanet Osei, AIA',
+    date: '2025-04-11T08:15:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e4', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'alicia@mendezinteriors.com', fromName: 'Alicia Mendez',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Augusta Riverwalk — revised qty',
+    body: 'Sarah,\n\nThe developer revised unit count up to 132. Need revised pricing for StoneCreek LVP. Same color/finish as the original quote.\n\nAlicia',
+    date: '2025-04-09T11:45:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e5', folder: 'inbox', isRead: false, isStarred: true,
+    from: 'kpowell@meridianbuild.com', fromName: 'Kevin Powell',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Need pricing — Roswell senior living',
+    body: 'Hi,\n\nGot your name from Beth at Stafford. We have a senior living project in Roswell, looking at about 22,000 sqft of LVP for common areas. Can you send pricing?\n\nKevin Powell\nMeridian Construction',
+    date: '2025-04-12T14:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e6', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'pmd@duncanarchitects.com', fromName: 'Patrick Duncan',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Quote request',
+    body: 'Need pricing on porcelain tile for a commercial project. About 8,000 sqft.\n\nPatrick Duncan, AIA',
+    date: '2025-04-13T10:00:00Z', attachedBrochureIds: [],
+  },
+
+  // ── SPEC SHEET / BROCHURE REQUESTS (auto-attach demo) ──────
+  {
+    id: 'e7', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'tom@greerarch.com', fromName: 'Tom Greer',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Need spec sheets — Marietta Office Park',
+    body: 'Sarah,\n\nCan you send me spec sheets for the StoneCreek LVP and SilverStream Carpet you mentioned? Need them for the submittal package.\n\nTom',
+    date: '2025-04-11T15:20:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e8', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'lisa@greerarch.com', fromName: 'Lisa Park',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Hardwood brochures please',
+    body: "Hi Sarah,\n\nI'm working on a high-end residential spec and need your hardwood lookbook plus Mohawk TecWood literature. Can you forward?\n\nThanks,\nLisa Park",
+    date: '2025-04-10T16:00:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e9', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'janet@oseiarch.com', fromName: 'Janet Osei',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'LEED documentation',
+    body: 'Sarah,\n\nWe need your sustainability/LEED documentation for the mixed-use submittal. Whatever you have for green building credits.\n\nJanet',
+    date: '2025-04-12T09:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e10', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'rmackey@buildersfirst.com', fromName: 'Robert Mackey',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Tile literature',
+    body: 'Send me your tile catalog when you get a chance. Working on a hotel ground floor.\n\nRobert',
+    date: '2025-04-13T07:45:00Z', attachedBrochureIds: [],
+  },
+
+  // ── NEW LEAD / NEW PROJECT MENTIONS (new-project detection) ─
+  {
+    id: 'e11', folder: 'inbox', isRead: false, isStarred: true,
+    from: 'sandra.ng@verityarch.com', fromName: 'Sandra Ng',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'New project — Decatur courthouse renovation',
+    body: 'Hi Sarah,\n\nVerity Architects here. We just landed the Decatur Courthouse renovation — about 35,000 sqft, government spec, GSA-compliant flooring required. Probably tile + commercial carpet. Can we set up a meeting?\n\nSandra Ng',
+    date: '2025-04-12T11:00:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e12', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'carlos@bonnardco.com', fromName: 'Carlos Bonnard',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Stone Mountain church build',
+    body: "Sarah,\n\nWe're building a new church campus in Stone Mountain — 28,000 sqft, sanctuary + classrooms + offices. Want to talk about flooring options. The architect is Greer Architecture.\n\nCarlos",
+    date: '2025-04-11T13:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e13', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'mreilly@gmail.com', fromName: 'Marcus Reilly',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'My penthouse — second project',
+    body: "Sarah,\n\nLove what we're doing with the penthouse. We also just bought a vacation place in Highlands NC — about 4,000 sqft. Would you handle that too?\n\nMarcus",
+    date: '2025-04-09T18:45:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e14', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'estimating@kingsridge.com', fromName: 'Kingsridge Estimating',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'RFP: Forsyth multifamily — 240 units',
+    body: 'Trinity Surfaces:\n\nKingsridge Builders is bidding the Forsyth Highlands multifamily — 240 units. Please submit pricing for our standard LVP package, see attached spec.\n\nDue April 30. Project value: ~$185k flooring.\n\nKingsridge Estimating Team',
+    date: '2025-04-13T08:00:00Z', attachedBrochureIds: [],
+  },
+
+  // ── FOLLOW-UPS ON EXISTING PROJECTS ────────────────────────
+  {
+    id: 'e15', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'priya@nairdesign.com', fromName: 'Priya Nair',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Re: Midtown Penthouse — Peachtree Oak feedback',
+    body: 'Sarah,\n\nMarcus loves the Peachtree Oak. He wants to move forward with the full master bedroom + living area. Send me a quote for 1,400 sqft.\n\nPriya',
+    date: '2025-04-08T10:15:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e16', folder: 'inbox', isRead: true, isStarred: false,
+    from: 'derek@johnsonreno.com', fromName: 'Derek Johnson',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Re: Savannah Historic — cork question',
+    body: 'Sarah,\n\nOn the CoastalCork — does it hold up in coastal humidity? Client is asking. Need a yes/no quickly.\n\nDerek',
+    date: '2025-04-04T14:00:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e17', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'ray@staffordbuild.com', fromName: 'Ray Stafford',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Macon Central High — site walk?',
+    body: 'Sarah,\n\nCan we get out there next week to walk the building before we lock in product? I have Tuesday or Thursday morning open.\n\nRay',
+    date: '2025-04-10T07:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e18', folder: 'inbox', isRead: true, isStarred: false,
+    from: 'sandra@kimfloors.com', fromName: 'Sandra Kim',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Re: Kim Floors install scheduled',
+    body: 'Confirmed for the 15th. Thanks Sarah!\n\nSandra',
+    date: '2025-04-05T12:00:00Z', attachedBrochureIds: [],
+  },
+
+  // ── SCHEDULING / LUNCH & LEARN ─────────────────────────────
+  {
+    id: 'e19', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'janet@oseiarch.com', fromName: 'Janet Osei',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Lunch & learn for our team',
+    body: 'Sarah,\n\nWe have a new spec team and I want to schedule a lunch & learn. Probably 8-10 people. Can you do mid-May?\n\nJanet',
+    date: '2025-04-11T16:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e20', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'pmorgan@hgaspec.com', fromName: 'Pat Morgan',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Presentation request',
+    body: 'Sarah,\n\nWe just expanded the firm and have new designers who need exposure to your line. Can you come present? About an hour.\n\nPat Morgan, HGA Spec Division',
+    date: '2025-04-12T10:20:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e21', folder: 'inbox', isRead: true, isStarred: false,
+    from: 'alicia@mendezinteriors.com', fromName: 'Alicia Mendez',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Showroom visit?',
+    body: 'Sarah,\n\nWant to come visit the Trinity showroom — what days work?\n\nAlicia',
+    date: '2025-04-06T13:00:00Z', attachedBrochureIds: [],
+  },
+
+  // ── DORMANT RE-ENGAGEMENT REPLIES ──────────────────────────
+  {
+    id: 'e22', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'tom@greerarch.com', fromName: 'Tom Greer',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Re: Checking in — Cobb Senior Living',
+    body: "Sarah,\n\nGood to hear from you. We're back on Cobb Senior Living — bidding restarted last week. Can you re-send the LVP pricing? We'll need updated numbers.\n\nTom",
+    date: '2025-04-08T08:45:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e23', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'janet@oseiarch.com', fromName: 'Janet Osei',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Re: Gwinnett Library — project status',
+    body: "Hi Sarah,\n\nThanks for checking in. We're moving on the library again — funding came through. Let's reconnect. I'll set up a call next week.\n\nJanet",
+    date: '2025-04-10T11:15:00Z', attachedBrochureIds: [],
+  },
+
+  // ── SAMPLE REQUESTS ────────────────────────────────────────
+  {
+    id: 'e24', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'tom@greerarch.com', fromName: 'Tom Greer',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Samples — Marietta Office',
+    body: 'Sarah,\n\nCan you ship 2x12 samples of StoneCreek LVP (all colors) and SilverStream Carpet to my office?\n\nTom',
+    date: '2025-04-11T12:00:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e25', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'priya@nairdesign.com', fromName: 'Priya Nair',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Need cork samples',
+    body: 'Sarah,\n\nNeed CoastalCork samples shipped to the boutique hotel project — Inman Park address on file.\n\nPriya',
+    date: '2025-04-09T15:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e26', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'beth@staffordbuild.com', fromName: 'Beth Stafford',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'AquaShield samples',
+    body: 'Sarah,\n\nSend 4 colors of AquaShield LVT to my office. Need them for the Macon Medical submittal.\n\nBeth',
+    date: '2025-04-07T09:45:00Z', attachedBrochureIds: [],
+  },
+
+  // ── GENERAL INQUIRIES ──────────────────────────────────────
+  {
+    id: 'e27', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'marcus@webbconstruction.com', fromName: 'Marcus Webb',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Question on warranty',
+    body: 'Sarah,\n\nWhat is the warranty on BlueSky SPC for commercial install? Client is asking.\n\nMarcus',
+    date: '2025-04-09T16:20:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e28', folder: 'inbox', isRead: true, isStarred: false,
+    from: 'brian@tatefloors.com', fromName: 'Brian Tate',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'New product line?',
+    body: 'Sarah,\n\nDo you have anything new in the SPC line coming this year? Customers keep asking for waterproof options.\n\nBrian',
+    date: '2025-04-03T11:00:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e29', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'mreilly@gmail.com', fromName: 'Marcus Reilly',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Maintenance question',
+    body: "Hi Sarah,\n\nOnce the hardwood is in, what's the recommended maintenance routine? Want to make sure we don't damage it.\n\nMarcus",
+    date: '2025-04-10T19:30:00Z', attachedBrochureIds: [],
+  },
+  {
+    id: 'e30', folder: 'inbox', isRead: false, isStarred: false,
+    from: 'estimating@kingsridge.com', fromName: 'Kingsridge Estimating',
+    to: ['sarah@trinitysurfaces.com'],
+    subject: 'Lead time questions',
+    body: "For the upcoming Forsyth bid — what are your typical lead times for 240-unit LVP packages? We're scheduling pour-to-flooring.\n\nKingsridge",
+    date: '2025-04-13T09:30:00Z', attachedBrochureIds: [],
+  },
+
+  // ── SENT / DRAFTS (existing flow) ──────────────────────────
+  {
+    id: 'e31', folder: 'sent', isRead: true, isStarred: false,
     from: 'sarah@trinitysurfaces.com', fromName: 'Sarah T.',
     to: ['priya@nairdesign.com'],
     subject: 'Hardwood samples shipped — Midtown Penthouse',
@@ -408,15 +917,7 @@ export const seedEmails: EmailMessage[] = [
     date: '2025-03-15T14:05:00Z', attachedBrochureIds: ['b3'],
   },
   {
-    id: 'e3', folder: 'inbox', isRead: true, isStarred: false,
-    from: 'tom@greerarch.com', fromName: 'Tom Greer',
-    to: ['sarah@trinitysurfaces.com'],
-    subject: 'Marietta Office Park — initial inquiry',
-    body: 'Sarah,\n\nWe have a new commercial project in Marietta — 18,000 sqft. Looking for commercial LVP and carpet options. Can you send your commercial catalog?\n\nTom',
-    date: '2025-04-01T10:30:00Z', attachedBrochureIds: [],
-  },
-  {
-    id: 'e4', folder: 'drafts', isRead: true, isStarred: false,
+    id: 'e32', folder: 'sent', isRead: true, isStarred: false,
     from: 'sarah@trinitysurfaces.com', fromName: 'Sarah T.',
     to: ['tom@greerarch.com'],
     subject: 'Marietta Office Park — Trinity Commercial Catalog',
@@ -424,12 +925,12 @@ export const seedEmails: EmailMessage[] = [
     date: '2025-04-02T09:00:00Z', attachedBrochureIds: ['b1', 'b6'],
   },
   {
-    id: 'e5', folder: 'inbox', isRead: false, isStarred: false,
-    from: 'janet@oseiarch.com', fromName: 'Janet Osei',
-    to: ['sarah@trinitysurfaces.com'],
-    subject: 'Mixed-Use Development — flooring RFP',
-    body: 'Sarah,\n\nWe are issuing an RFP for a 60,000 sqft mixed-use development on Howell Mill. Please submit pricing for LVP, SPC, tile, and commercial carpet by April 25.\n\nJanet Osei, AIA',
-    date: '2025-04-11T08:15:00Z', attachedBrochureIds: [],
+    id: 'e33', folder: 'sent', isRead: true, isStarred: false,
+    from: 'sarah@trinitysurfaces.com', fromName: 'Sarah T.',
+    to: ['marcus@webbconstruction.com'],
+    subject: 'Buckhead High-Rise — initial pricing',
+    body: 'Hi Marcus,\n\nPer our call, attached is initial pricing for the lobby/corridor SPC. Final qty pending architect sign-off.\n\nSarah',
+    date: '2025-03-15T10:30:00Z', attachedBrochureIds: ['b1'],
   },
 ];
 
@@ -480,3 +981,54 @@ export const seedDistributorPriceLists: DistributorPriceList[] = [
     ],
   },
 ];
+
+// ── SALES LOCATIONS (foundation slice — production-shaped) ────
+export const seedSalesLocations: SalesLocation[] = [
+  { id: '310', name: 'Atlanta', region: 'GA', city: 'Atlanta', state: 'GA' },
+  { id: '210', name: 'Charlotte', region: 'NC', city: 'Charlotte', state: 'NC' },
+  { id: '410', name: 'Savannah', region: 'GA', city: 'Savannah', state: 'GA' },
+  { id: '510', name: 'Augusta', region: 'GA', city: 'Augusta', state: 'GA' },
+  { id: '610', name: 'Nashville', region: 'TN', city: 'Nashville', state: 'TN' },
+];
+
+// ── REPS ──────────────────────────────────────────────────────
+// "You" is Sarah T. The other reps exist so cross-rep features (GC/sub
+// learning, location aggregates) have real data to demo against.
+export const seedReps: Rep[] = [
+  {
+    id: 'rep-sarah', name: 'Sarah Thompson', initials: 'ST',
+    email: 'sarah@trinitysurfaces.com', phone: '404-555-9001',
+    salesLocationId: '310', isCurrentUser: true,
+  },
+  {
+    id: 'rep-marcus', name: 'Marcus Lee', initials: 'ML',
+    email: 'marcus.l@trinitysurfaces.com', phone: '404-555-9002',
+    salesLocationId: '310',
+  },
+  {
+    id: 'rep-tonya', name: 'Tonya Brooks', initials: 'TB',
+    email: 'tonya@trinitysurfaces.com', phone: '704-555-9003',
+    salesLocationId: '210',
+  },
+  {
+    id: 'rep-derek', name: 'Derek Wallace', initials: 'DW',
+    email: 'derek@trinitysurfaces.com', phone: '912-555-9004',
+    salesLocationId: '410',
+  },
+  {
+    id: 'rep-amy', name: 'Amy Chen', initials: 'AC',
+    email: 'amy@trinitysurfaces.com', phone: '615-555-9005',
+    salesLocationId: '610',
+  },
+];
+
+// ── EMAIL THREADS, DRAFTS, ACTIVITIES, EDGES, DIGESTS, QUOTES ──
+// Start empty. The email AI pipeline writes threads + drafts on inbox load;
+// activities accumulate as the rep works; gcSubEdges populate when quotes
+// send; dormantDigests refresh weekly.
+export const seedEmailThreads: EmailThread[] = [];
+export const seedEmailDrafts: EmailDraft[] = [];
+export const seedActivities: Activity[] = [];
+export const seedGcSubEdges: GcSubEdge[] = [];
+export const seedDormantDigests: DormantDigest[] = [];
+export const seedQuotes: Quote[] = [];

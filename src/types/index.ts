@@ -247,3 +247,300 @@ export interface DistributorPriceList {
   effectiveDate: string;
   entries: DistributorPriceEntry[];
 }
+
+// ── EXTENDED SCHEMAS (foundation slice — additive, production-shaped) ──
+//
+// Reps & locations. Slice 0 introduces multi-rep awareness so the email AI,
+// CRM, and dashboards can scope by rep. Existing entities get optional
+// salesRepId fields; seed data backfills them on the active rep ("you").
+
+export interface SalesLocation {
+  id: string;          // e.g. '210' (matches user's spec for Charlotte)
+  name: string;        // e.g. 'Charlotte'
+  region: string;      // e.g. 'NC'
+  city: string;
+  state: string;
+}
+
+export interface Rep {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  phone: string;
+  salesLocationId: string;
+  isCurrentUser?: boolean;  // dev-mode "who am I right now" flag
+}
+
+// ── Opportunity / project extensions ──────────────────────────
+// User asked for distinct Status (high-level) and Stage (workflow position).
+// Keeping ProjectStatus as-is for the current CRM page; new fields are
+// optional so existing data continues to render.
+
+export type OpportunityStatus =
+  | 'active'
+  | 'won'
+  | 'lost'
+  | 'not_pursued'
+  | 'on_hold';
+
+export type OpportunityStage =
+  | 'lead_qualification'
+  | 'design'
+  | 'bidding'
+  | 'awarded'
+  | 'orders_pending'
+  | 'orders_placed'
+  | 'closed';
+
+export type ProjectType =
+  | 'multifamily'
+  | 'corporate'
+  | 'government'
+  | 'community'
+  | 'healthcare'
+  | 'hospitality'
+  | 'retail'
+  | 'mixed_use'
+  | 'education'
+  | 'industrial'
+  | 'single_family'
+  | 'other';
+
+// Companies that we have quoted on a given project. Used for GC↔sub learning
+// over time. Auto-populated when a quote is sent.
+export interface Bidder {
+  id: string;
+  customerId: string;       // who we quoted
+  quotedDate: string;
+  quotedAmount?: number;
+  awarded?: boolean;        // did they win the bid (tracked separately from project award)
+  notes?: string;
+}
+
+// Directed edge: GC → sub. Builds the relationship graph as projects close.
+export interface GcSubEdge {
+  id: string;
+  gcCustomerId: string;
+  subCustomerId: string;
+  projectId: string;
+  wonDate: string;
+  projectValue?: number;
+}
+
+// Per-opportunity activity log (calls, meetings, emails, notes, status changes).
+// Drives the AI summary panel and dormancy detection.
+export type ActivityType =
+  | 'email_in'
+  | 'email_out'
+  | 'call'
+  | 'meeting'
+  | 'note'
+  | 'status_change'
+  | 'stage_change'
+  | 'quote_sent'
+  | 'sample_sent'
+  | 'site_visit';
+
+export interface Activity {
+  id: string;
+  projectId: string;
+  repId: string;
+  type: ActivityType;
+  date: string;
+  summary: string;          // short, human-readable
+  body?: string;            // optional long-form (e.g. meeting notes)
+  relatedEmailId?: string;
+  relatedQuoteId?: string;
+}
+
+// New optional project fields. Foundation backfills these on existing seed
+// projects so the CRM redesign in slice 2 starts with real data.
+export interface ProjectExtensions {
+  opportunityId?: string;        // separate from project id (human-readable, e.g. 'OPP-2025-0142')
+  salesRepId?: string;
+  salesLocationId?: string;
+  projectType?: ProjectType;
+  opportunityStatus?: OpportunityStatus;
+  opportunityStage?: OpportunityStage;
+  nextStep?: string;
+  updatedDate?: string;          // last activity / edit timestamp
+  architecturalFirmId?: string;  // customerId of the spec firm
+  gcCustomerId?: string;         // customerId of the GC if awarded
+  developerCustomerId?: string;  // customerId of the developer
+  endUserCustomerId?: string;    // owner/end user (for design firm projects)
+  jobLocation?: string;          // city/site location text (separate from billing address)
+  bidders?: Bidder[];
+  cmdProjectId?: string;         // ConstructConnect / CMD link (mocked for now)
+  lastTouchAt?: string;          // computed from activities; cached for dormancy queries
+  aiSummary?: string;            // refreshed by the AI summary endpoint
+  aiSummaryUpdatedAt?: string;
+}
+
+// ── Email threading + auto-draft pipeline ─────────────────────
+
+export type EmailIntent =
+  | 'pricing_request'
+  | 'spec_sheet_request'
+  | 'general_inquiry'
+  | 'scheduling'
+  | 'new_lead'
+  | 'follow_up'
+  | 'dormant_reply'
+  | 'sample_request'
+  | 'order_question'
+  | 'other';
+
+export interface EmailThread {
+  id: string;
+  subject: string;
+  participantEmails: string[];
+  customerId?: string;
+  projectId?: string;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
+// Fields the AI still needs before it can write a real quote. Used to render
+// "I just need X, Y, Z" inline asks in the draft body, and [PLACEHOLDER]
+// scaffolds in the quote table.
+export type QuoteMissingField =
+  | 'project_name'
+  | 'architectural_firm'
+  | 'gc'
+  | 'developer'
+  | 'end_user'
+  | 'job_location'
+  | 'product'
+  | 'size'
+  | 'color'
+  | 'finish'
+  | 'quantity';
+
+export interface MissingFieldAsk {
+  field: QuoteMissingField;
+  contextLabel: string;     // e.g. "developer", "qty for Peachtree Oak EHW"
+  hint?: string;
+}
+
+export interface QuoteLineItem {
+  id: string;
+  productId?: string;       // resolved match if found
+  productName: string;      // raw name from email or matched Trinity name
+  size?: string;            // "12x24", "5in plank", etc.
+  color?: string;
+  finish?: string;
+  quantity?: number;
+  unit: string;
+  unitPrice?: number;       // from pricing engine; undefined when pending
+  totalPrice?: number;
+  pricingPending?: boolean; // true when product not on sheet
+  placeholderFields?: QuoteMissingField[];  // fields the rep still needs to fill
+}
+
+export interface Quote {
+  id: string;
+  projectId?: string;       // linked once project is known
+  customerId?: string;
+  repId: string;
+  createdDate: string;
+  sentDate?: string;
+  lineItems: QuoteLineItem[];
+  subtotal?: number;
+  notes?: string;
+  status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
+  emailDraftId?: string;    // the draft this quote was attached to
+}
+
+// Auto-drafted reply to a received email. Generated by the email AI pipeline
+// on inbox load; rep edits + sends from the email page.
+export interface EmailDraft {
+  id: string;
+  inReplyToEmailId: string;
+  threadId: string;
+  repId: string;
+  createdAt: string;
+  updatedAt: string;
+  subject: string;
+  body: string;
+  attachedBrochureIds: string[];
+  intent: EmailIntent;
+  matchedProjectId?: string;
+  matchedCustomerId?: string;
+  quoteId?: string;             // attached quote if pricing-shaped
+  missingFieldAsks: MissingFieldAsk[];
+  isAutoDrafted: boolean;
+  isEdited: boolean;
+  status: 'pending' | 'ready' | 'sent' | 'discarded';
+  sentAt?: string;
+}
+
+// Extension fields layered onto the existing EmailMessage. We don't rewrite
+// EmailMessage so the current EmailPage keeps working; new fields are read
+// opportunistically by the email AI pipeline.
+export interface EmailMessageExtensions {
+  threadId?: string;
+  repId?: string;
+  intent?: EmailIntent;
+  projectId?: string;            // matched once classification runs
+  customerId?: string;
+  draftId?: string;              // the auto-drafted reply, when one exists
+  processingState?: 'unprocessed' | 'classified' | 'draft_ready' | 'needs_project_link' | 'sent';
+  newProjectCandidate?: {
+    suggestedName: string;
+    suggestedFirm?: string;
+    suggestedLocation?: string;
+    confidence: number;          // 0..1
+  };
+}
+
+// ── Weekly dormant digest ─────────────────────────────────────
+
+export interface DormantAccountEntry {
+  customerId: string;
+  customerName: string;
+  customerType: CustomerType;
+  lastTouchAt: string;
+  daysDormant: number;
+  pastOpportunityValue: number;   // sum of past projects with this customer
+  draftEmailId?: string;          // pre-generated re-engagement draft
+  templateType: 'lunch_and_learn' | 'presentation_invite' | 'check_in' | 'new_opportunity';
+}
+
+export interface DormantDigest {
+  id: string;
+  repId: string;
+  weekOf: string;                 // ISO date of the Monday this digest is for
+  generatedAt: string;
+  entries: DormantAccountEntry[];
+  sentAsEmailId?: string;         // the mock "system" email that landed in inbox
+}
+
+// ── Pricing rule config (foundation; rules defined in src/config/pricingRules.ts) ──
+
+export interface SizeTier {
+  matches: string[];               // patterns: "12x24", "24x24", "5in plank", etc.
+  multiplier: number;              // applied to base net price
+}
+
+export interface FinishSurcharge {
+  finish: string;                  // "Polished", "Hand-Scraped", etc.
+  amountPerUnit: number;           // added to base net price
+}
+
+export interface QtyDiscountTier {
+  minQty: number;                  // quantity threshold in product's unit
+  discountPct: number;             // applied to base price
+}
+
+export interface PricingRules {
+  sizeTiers: SizeTier[];
+  finishSurcharges: FinishSurcharge[];
+  qtyDiscountTiers: QtyDiscountTier[];
+}
+
+// ── Augmented entity types (composed via intersection so existing usages still type-check) ──
+// Pages can opt in to the extended view by importing these aliases.
+
+export type ExtendedProject = Project & ProjectExtensions;
+export type ExtendedEmailMessage = EmailMessage & EmailMessageExtensions;
