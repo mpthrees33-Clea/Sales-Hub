@@ -47,10 +47,14 @@ const ORDER_STATUS_PILL: Record<string, string> = {
   Cancelled: 'bg-danger/15 text-danger border border-danger/30',
 };
 
+// Dollar formatting:
+//   < $1M:  full dollars with commas — $148,500
+//   ≥ $1M:  M-suffix short form — $5.87M
+// "k" abbreviation looked too sloppy on the Sales Created / Invoiced
+// cards, so we only abbreviate at millions.
 function fmt(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1000) return `$${(n / 1000).toFixed(0)}k`;
-  return `$${n}`;
+  return `$${Math.round(n).toLocaleString()}`;
 }
 
 // Inclusive: returns true if iso date string falls within [start, end]
@@ -329,21 +333,43 @@ export default function Dashboard() {
         }}
       />
 
-      {/* Daily Recap + Looking Ahead — the rep's "what's happening today
-          and tomorrow" headline. Stacks on mobile, side-by-side on lg+. */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <DailyRecap
-          appointments={repAppointments}
-          activities={repActivities}
-          todayDate={now}
-          emailsTodayCount={emailsTodayCount}
-          draftsTodayCount={draftsTodayCount}
-        />
-        <LookingAhead
-          appointments={repAppointments}
-          todayDate={now}
-          onTogglePacked={handleTogglePacked}
-        />
+      {/* Daily Recap + Performance (left column) and Looking Ahead (right
+          column). items-start lets each column flow to its natural height,
+          so there's no wasted whitespace under Daily Recap — the Sales
+          Created + Invoiced cards stack beneath it to fill the column. */}
+      <div className="grid lg:grid-cols-12 gap-4 items-start">
+        <div className="lg:col-span-5 space-y-4 min-w-0">
+          <DailyRecap
+            appointments={repAppointments}
+            activities={repActivities}
+            todayDate={now}
+            emailsTodayCount={emailsTodayCount}
+            draftsTodayCount={draftsTodayCount}
+          />
+          <PerformanceCard
+            title="Sales Created"
+            icon={FileText}
+            weekValue={salesCreatedWeek}
+            weekTarget={settings.weeklySalesTarget}
+            monthValue={salesCreatedMonth}
+            monthTarget={settings.monthlySalesTarget}
+          />
+          <PerformanceCard
+            title="Invoiced"
+            icon={Receipt}
+            weekValue={invoicedWeek}
+            weekTarget={settings.weeklyInvoiceTarget}
+            monthValue={invoicedMonth}
+            monthTarget={settings.monthlyInvoiceTarget}
+          />
+        </div>
+        <div className="lg:col-span-7 min-w-0">
+          <LookingAhead
+            appointments={repAppointments}
+            todayDate={now}
+            onTogglePacked={handleTogglePacked}
+          />
+        </div>
       </div>
 
       {/* Dormant accounts digest — weekly */}
@@ -374,26 +400,6 @@ export default function Dashboard() {
           <ChevronRight size={16} className="text-fg-faint group-hover:text-warning shrink-0 mt-1" />
         </button>
       )}
-
-      {/* Performance cards */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <PerformanceCard
-          title="Sales Created"
-          icon={FileText}
-          weekValue={salesCreatedWeek}
-          weekTarget={settings.weeklySalesTarget}
-          monthValue={salesCreatedMonth}
-          monthTarget={settings.monthlySalesTarget}
-        />
-        <PerformanceCard
-          title="Invoiced"
-          icon={Receipt}
-          weekValue={invoicedWeek}
-          weekTarget={settings.weeklyInvoiceTarget}
-          monthValue={invoicedMonth}
-          monthTarget={settings.monthlyInvoiceTarget}
-        />
-      </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Recent Projects */}
@@ -435,7 +441,7 @@ export default function Dashboard() {
                   <span className={clsx('text-[11px] px-2 py-0.5 rounded-full font-medium', STATUS_PILL[proj.status])}>
                     {proj.status}
                   </span>
-                  <span className="text-sm font-semibold text-fg w-16 text-right tabular-nums">
+                  <span className="text-sm font-semibold text-fg w-24 text-right tabular-nums">
                     {fmt(proj.value)}
                   </span>
                 </button>
