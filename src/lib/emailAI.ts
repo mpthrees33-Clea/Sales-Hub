@@ -53,8 +53,19 @@ export interface DraftGenerationResult {
 export function classifyIntentLocally(email: EmailMessage): EmailIntent {
   const haystack = `${email.subject} ${email.body}`.toLowerCase();
 
-  if (/\b(quote|pricing|price|cost|how much|budget|estimate|rfp|bid)\b/.test(haystack)) {
+  // Explicit price/quote ask wins — even if a new project is mentioned, the
+  // customer wants numbers.
+  if (/\b(quote|pricing|price|cost|how much|estimate|rfp|bid)\b/.test(haystack)) {
     return 'pricing_request';
+  }
+  if (/\b(sample|swatch|chip|board)\b/.test(haystack)) {
+    return 'sample_request';
+  }
+  // New-lead detection BEFORE spec/brochure check — a brochure ask paired
+  // with a new-project mention is a new lead and should trigger the
+  // budget-tier ask, not a generic "here's the catalog" reply.
+  if (/\bnew\s+(?:\w+\s+){0,2}(project|build|development|opportunity|lead)\b|just\s+landed|just\s+bought|got\s+your\s+name/.test(haystack)) {
+    return 'new_lead';
   }
   if (/\b(spec sheet|specifications?|technical data|cut sheet|leed|sustainability|warranty)\b/.test(haystack)) {
     return 'spec_sheet_request';
@@ -62,14 +73,8 @@ export function classifyIntentLocally(email: EmailMessage): EmailIntent {
   if (/\b(brochure|catalog|literature|product (guide|info|line))\b/.test(haystack)) {
     return 'spec_sheet_request';
   }
-  if (/\b(sample|swatch|chip|board)\b/.test(haystack)) {
-    return 'sample_request';
-  }
   if (/\b(lunch.{0,5}learn|presentation|come by|meeting|schedule|appointment|showroom visit|visit our|stop by)\b/.test(haystack)) {
     return 'scheduling';
-  }
-  if (/\b(new project|new build|new development|just landed|just bought|got your name|new lead)\b/.test(haystack)) {
-    return 'new_lead';
   }
   if (/^re:/i.test(email.subject) || /\b(following up|circling back|update|status|where (are|do) we|just checking)\b/.test(haystack)) {
     return 'follow_up';
@@ -142,6 +147,8 @@ export function suggestBrochures(
 // ── Deterministic body composer (fallback) ──
 // Used when Gemini isn't configured or fails. Produces a plausible reply
 // from the intent + context so the page still works in offline/no-key mode.
+// Follows the same VOICE rules as the LLM prompt: enthusiastic on positive
+// news, never assume — always ask for missing specs by name.
 function composeFallbackBody(args: {
   email: EmailMessage;
   rep: Rep;
@@ -149,6 +156,7 @@ function composeFallbackBody(args: {
   matchedProject?: ExtendedProject;
   brochures: Brochure[];
   attachBrochureIds: string[];
+  missingFieldAsks?: MissingFieldAsk[];
 }): string {
   const senderFirst = args.email.fromName.split(/\s+/)[0] || 'there';
   const repFirst = args.rep.name.split(/\s+/)[0];
@@ -157,37 +165,132 @@ function composeFallbackBody(args: {
     .map((id) => args.brochures.find((b) => b.id === id)?.name)
     .filter(Boolean)
     .join(', ');
+  const positive = isPositiveNews(args.email);
 
   let lead: string;
   switch (args.intent) {
-    case 'pricing_request':
-      lead = `Thanks for the pricing request${projectClause}. I'll work up the numbers and have a formal quote over within 24 hours. If you have any updates on the specs (size, color, finish, qty) before then, just send them along.`;
+    case 'pricing_request': {
+      const openers = positive
+        ? [`That's great news!`, `Awesome — happy to hear it.`, `Excellent.`]
+        : [`Thanks for sending this over.`, `Got it.`];
+      const opener = openers[0];
+
+      const asks = composeMissingFieldQuestions(args.missingFieldAsks ?? []);
+      if (asks) {
+        lead = `${opener} I can absolutely put a quote together${projectClause}. Quick — ${asks} We can't quote what we don't know and I don't want to assume. Once I have that, the formal quote will follow.`;
+      } else {
+        lead = `${opener} I'll put the formal quote together${projectClause} and have it over to you shortly.`;
+      }
       break;
+    }
     case 'spec_sheet_request':
       lead = `Attached are the spec sheets you asked for${projectClause}. Let me know if you need anything else — additional product literature, comparison sheets, or LEED documentation.`;
       break;
     case 'sample_request':
-      lead = `I'll get samples in the mail today${projectClause}. You should have them in 2–3 business days. Let me know once they land and we can talk next steps.`;
+      lead = `I'll get samples in the mail today${projectClause}. You should have them in 2–3 business days — let me know once they land and we can talk next steps.`;
       break;
     case 'scheduling':
-      lead = `Happy to set that up${projectClause}. Let me know what days/times work for you and I'll get something on the calendar.`;
+      lead = `Happy to set that up${projectClause}. What days/times work best for you? I can usually offer a Tuesday or Thursday in the next couple weeks — let me know what fits.`;
       break;
-    case 'new_lead':
-      lead = `Great to hear from you. Trinity would love to be involved in this — I've attached our overview literature to get you started. Want to set up a quick call to walk through your specs and timeline?`;
+    case 'new_lead': {
+      const range = inferBudgetRangeBlurb(args.email);
+      const budgetAsk = range
+        ? `Quick question before I dive deeper — do you have a target budget? For ${range.label}, projects typically run ${range.range}. Knowing where you're aiming helps me narrow this down instead of sending the full line.`
+        : `Quick question before I dive deeper — do you have a target budget for the project? Knowing where you're aiming helps me narrow recommendations instead of sending the full line.`;
+      lead = `Great to hear from you${projectClause}. Trinity would love to be involved. I've attached our overview literature to get you started. ${budgetAsk}`;
       break;
+    }
     case 'follow_up':
-      lead = `Following up — happy to keep moving this forward${projectClause}. Where are you in the process and what do you need from me next?`;
+      lead = `Following up${projectClause} — happy to keep this moving. Where are you in the process and what specifically do you need from me next? Specs, samples, revised pricing, a call?`;
       break;
     case 'order_question':
-      lead = `I'll pull up the order details and get back to you with status today.`;
+      lead = `I'll pull up the order details and circle back today with status, tracking, and any next steps.`;
       break;
     default:
-      lead = `Thanks for reaching out. Let me know what you need and I'll get on it.`;
+      lead = `Thanks for reaching out. Let me know exactly what you need and I'll get on it today.`;
   }
 
   const attachLine = attachedNames ? `\n\nAttached: ${attachedNames}.` : '';
-
   return `Hi ${senderFirst},\n\n${lead}${attachLine}\n\nThanks,\n${repFirst}`;
+}
+
+// Build a single natural-language sentence asking for each missing field by
+// name. Used by the fallback composer so reps see specific asks instead of
+// generic "let me know if anything changes" wording.
+function composeMissingFieldQuestions(asks: MissingFieldAsk[]): string {
+  if (!asks.length) return '';
+  // Dedupe by contextLabel — multiple line items can share asks.
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const ask of asks) {
+    const label = ask.contextLabel;
+    if (seen.has(label)) continue;
+    seen.add(label);
+    labels.push(label);
+  }
+  // Cap at 5 for readability; the chip strip surfaces the full list.
+  const capped = labels.slice(0, 5);
+  if (capped.length === 1) return `do you know the ${capped[0]}?`;
+  if (capped.length === 2) return `do you know the ${capped[0]} and the ${capped[1]}?`;
+  const head = capped.slice(0, -1).join(', ');
+  const tail = capped[capped.length - 1];
+  return `do you have the ${head}, and the ${tail}?`;
+}
+
+// Detect "this email is positive/celebratory news" so the fallback opener
+// matches the energy of the message. Conservative — we'd rather sound
+// professional than fake enthusiasm on a neutral note.
+function isPositiveNews(email: EmailMessage): boolean {
+  const haystack = `${email.subject} ${email.body}`.toLowerCase();
+  return /\b(approved|approval|got approval|great news|good news|love(s|d)?\s+(the|it|that)|loved the|moving forward|move forward|excited|congrats|won the|go ahead|green light)\b/.test(haystack);
+}
+
+// Rough budget anchor for new-lead asks. Looks for category mentions in the
+// email + a quantity, returns a copy-pastable phrase like "18,000 sq ft of
+// commercial LVP — $40k–$70k typical".
+interface BudgetBlurb {
+  label: string;
+  range: string;
+}
+function inferBudgetRangeBlurb(email: EmailMessage): BudgetBlurb | undefined {
+  const haystack = `${email.subject} ${email.body}`;
+  const lower = haystack.toLowerCase();
+
+  const qtyMatch = haystack.match(/([\d,]+)\s*(sq\s*ft|sqft|square\s+feet|sq\s*yd|square\s+yards|units)/i);
+  const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : undefined;
+  if (!qty || qty < 500) return undefined;
+
+  const ranges: Array<{ test: RegExp; label: string; lo: number; hi: number; unit: 'sf' | 'sy' }> = [
+    { test: /\b(spc|stone\s*polymer)\b/, label: 'commercial SPC',         lo: 2.80, hi: 4.00, unit: 'sf' },
+    { test: /\b(lvp|luxury vinyl|vinyl plank)\b/, label: 'commercial LVP', lo: 2.20, hi: 3.50, unit: 'sf' },
+    { test: /\b(carpet|broadloom)\b/, label: 'commercial carpet',          lo: 1.40, hi: 2.50, unit: 'sy' },
+    { test: /\btile|porcelain|ceramic\b/, label: 'porcelain tile',         lo: 2.20, hi: 4.50, unit: 'sf' },
+    { test: /\b(engineered hardwood|engineered wood)\b/, label: 'engineered hardwood', lo: 3.50, hi: 5.50, unit: 'sf' },
+    { test: /\b(solid hardwood|maple|oak|walnut|cherry)\b/, label: 'solid hardwood',   lo: 4.50, hi: 7.00, unit: 'sf' },
+    { test: /\b(laminate)\b/, label: 'laminate',                                       lo: 1.75, hi: 2.99, unit: 'sf' },
+    { test: /\b(cork)\b/, label: 'cork',                                               lo: 2.40, hi: 3.50, unit: 'sf' },
+  ];
+
+  const matched = ranges.filter((r) => r.test.test(lower));
+  if (!matched.length) return undefined;
+
+  // Skip when matched categories mix units (sq ft vs sq yd) — the qty in the
+  // email is one unit, so a combined projection would be misleading. Better
+  // to fall through to the no-anchor budget ask than print bad numbers.
+  const units = new Set(matched.map((m) => m.unit));
+  if (units.size > 1) return undefined;
+
+  const lo = Math.min(...matched.map((m) => m.lo));
+  const hi = Math.max(...matched.map((m) => m.hi));
+  const totalLo = Math.round((qty * lo) / 1000);
+  const totalHi = Math.round((qty * hi) / 1000);
+  const labels = matched.map((m) => m.label).slice(0, 2).join(' / ');
+  const qtyLabel = qty.toLocaleString();
+  const unitText = matched[0].unit === 'sy' ? 'sq yd' : 'sq ft';
+  return {
+    label: `${qtyLabel} ${unitText} of ${labels}`,
+    range: `$${totalLo}k–$${totalHi}k`,
+  };
 }
 
 // ── LLM-backed composer ──
@@ -252,11 +355,36 @@ export async function generateDraftWithLLM(
       })}`
     : 'No matched project — sender may be referring to a new opportunity or a general inquiry.';
 
-  const systemPrompt = `You are ${ctx.rep.name}, a sales rep at Trinity Surfaces — a Georgia-based flooring distributor. You draft replies to incoming customer emails. Tone: warm, concise, professional, to-the-point. Replies are typically 3–6 short sentences. End with a sign-off using your first name.
+  const systemPrompt = `You are ${ctx.rep.name}, a sales rep at Trinity Surfaces — a Georgia-based flooring distributor. You draft replies to incoming customer emails.
 
-Trinity sells LVP, SPC, hardwood, engineered hardwood, laminate, carpet, tile, cork, and bamboo. Every product has both a Trinity name and 2+ competitor/brand private-label names — use Trinity names in replies unless the customer used a brand name first.
+VOICE
+- Warm, direct, confident, professional. You sound like a senior rep who knows the line cold and respects the customer's time.
+- Be enthusiastic when the news is genuinely positive ("That's great news!", "Awesome — glad they like it.", "Love hearing that."). Don't fake it on neutral emails.
+- 3–6 short sentences. End with a sign-off using your first name.
+- Use Trinity product names unless the customer named a competitor brand first.
 
-You will receive: the incoming email, project context (if matched), and a brochure catalog. You must output VALID JSON only, matching this exact shape:
+THE GOLDEN RULE — NEVER ASSUME, ALWAYS ASK
+A quote is only as good as the inputs. If anything is missing — color, size, finish, qty, project name, architectural firm, GC, developer, end user, job location, or budget tier — name it specifically and ask for it before you commit to a quote. You can write that you'll send a quote once you have the info; you cannot send a quote you'd have to fudge.
+
+EXAMPLES (good vs bad asks)
+✓ "Do you know which color they chose so I can lock that in on the quote?"
+✓ "Quick question — what finish are they thinking? Embossed and polished change the pricing tier, so I want to make sure I send you the right number."
+✓ "Do you have a target budget for the project? Knowing what we're shooting for helps me narrow this down instead of sending the full line."
+✗ "Let me know if anything changes." (too soft)
+✗ "I'll work up the numbers." (commits to a quote we can't actually write)
+✗ "Send updated specs whenever you have them." (passive)
+
+BUDGET TIER REFERENCE (for context — use rough ranges only when the customer hasn't stated a budget)
+- Commercial LVP: ~$2.20–$3.50 / sq ft
+- Commercial SPC: ~$2.80–$4.00 / sq ft
+- Commercial carpet: ~$1.40–$2.50 / sq yd
+- Porcelain tile: ~$2.20–$4.50 / sq ft
+- Engineered hardwood: ~$3.50–$5.50 / sq ft
+- Solid hardwood: ~$4.50–$7.00 / sq ft
+- Cork: ~$2.40–$3.50 / sq ft
+- Laminate: ~$1.75–$2.99 / sq ft
+
+OUTPUT — VALID JSON ONLY, matching this exact shape:
 {"intent": "pricing_request|spec_sheet_request|general_inquiry|scheduling|new_lead|follow_up|sample_request|order_question|other",
  "subject": "Re: ...",
  "body": "Hi X,\\n\\n...",
@@ -265,25 +393,29 @@ You will receive: the incoming email, project context (if matched), and a brochu
  "missingFieldAsks": [{"field": "color", "contextLabel": "color for BlueSky SPC", "hint": "..."}],
  "reasoning": "one line"}
 
-Rules:
+GENERAL RULES
 - Subject: "Re: <original subject>" unless it already starts with Re:, then keep as-is.
-- Body: real, sendable text. No placeholders, no bracketed instructions to the reader, no headers like "Body:".
+- Body: real, sendable text. No placeholders, no bracketed instructions to the reader, no headers like "Body:". Do not write "[your name]" — sign with your actual first name.
 - attachBrochureIds: pick from the catalog below. Empty array if no attachment is warranted. Max 3.
 
-For pricing_request specifically:
+FOR pricing_request:
 - Extract every line item the customer is asking about into lineItemRequests. Use the Trinity name when you can map the requested brand/product to one. Fill in size, color, finish, quantity (and unit — "sq ft", "sq yd", "carton", "each") when stated. Use null for any field the email doesn't specify — DO NOT guess.
 - For missingFieldAsks: list every field you still need to write a formal quote. field is one of: project_name, architectural_firm, gc, developer, end_user, job_location, product, size, color, finish, quantity. contextLabel is human-readable (e.g. "color for BlueSky SPC"). hint can quote what the customer said to give the rep context.
-- Body should:
-    * Confirm receipt and acknowledge the project.
-    * If missingFieldAsks is non-empty, list the missing items naturally as a single sentence ("I just need X, Y, and Z to put this together").
-    * Promise the formal quote follows (it will be auto-attached by the system).
-    * NOT include any pricing numbers — the quote table is generated separately.
+- Body must (in order):
+    1. Open enthusiastically if the news is positive (sample approval, going to bid, "love it" — anything that's a win). Otherwise warm + direct.
+    2. For EVERY field in missingFieldAsks, ask for it BY NAME in a single natural sentence. Don't lump them as "anything else you have"; the customer needs to know exactly what's needed. E.g.: "Do you know which color they chose so I can add it to your quote? We can't quote what we don't know."
+    3. Promise the formal quote follows once you have the info. The quote table is generated separately — DO NOT include pricing numbers in the body.
 
-For non-pricing intents:
+FOR new_lead and general_inquiry:
+- If the customer hasn't given you a budget tier or project value, ASK about budget. Phrase like: "Do you have a target budget? Knowing the range helps me narrow this down instead of sending the full line." When relevant, drop a rough range from the BUDGET TIER REFERENCE above so the customer has anchor numbers.
+- Attach 1–2 relevant brochures from the catalog.
+
+FOR spec_sheet_request:
+- Attach the matching brochures from the catalog. Body confirms what's attached and offers to send more if needed.
+
+FOR sample_request, scheduling, follow_up, order_question:
 - lineItemRequests and missingFieldAsks should be [] or omitted.
-- For spec sheet requests, attach the matching brochures from the catalog.
-- For new leads, attach 1–2 overview brochures.
-- For order questions, no attachments.`;
+- Sample/order: no attachments. Scheduling: confirm + offer 2–3 specific times when possible.`;
 
   const userPrompt = `Incoming email:
 From: ${ctx.email.fromName} <${ctx.email.from}>
@@ -519,6 +651,16 @@ export async function buildDraftScaffold(
     matchedProject: ctx.matchedProject,
   });
   const subject = /^re:/i.test(ctx.email.subject) ? ctx.email.subject : `Re: ${ctx.email.subject}`;
+
+  // Compute missing fields BEFORE composing body so the fallback writer can
+  // ask for each one by name in the reply (matches the LLM path behavior).
+  let lineItemRequests: LineItemRequest[] | undefined;
+  let missingFieldAsks: MissingFieldAsk[] | undefined;
+  if (intent === 'pricing_request') {
+    lineItemRequests = extractLineItemsLocally(ctx.email, ctx.products);
+    missingFieldAsks = deriveMaterialMissingFields(lineItemRequests);
+  }
+
   const body = composeFallbackBody({
     email: ctx.email,
     rep: ctx.rep,
@@ -526,14 +668,8 @@ export async function buildDraftScaffold(
     matchedProject: ctx.matchedProject,
     brochures: ctx.brochures,
     attachBrochureIds,
+    missingFieldAsks,
   });
-
-  let lineItemRequests: LineItemRequest[] | undefined;
-  let missingFieldAsks: MissingFieldAsk[] | undefined;
-  if (intent === 'pricing_request') {
-    lineItemRequests = extractLineItemsLocally(ctx.email, ctx.products);
-    missingFieldAsks = deriveMaterialMissingFields(lineItemRequests);
-  }
 
   return {
     intent,

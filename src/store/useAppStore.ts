@@ -319,7 +319,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 4,
+      version: 5,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -327,6 +327,10 @@ export const useAppStore = create<AppState>()(
       //   v3 → v4: merge in the 5 dormant-only customers + projects added
       //            for the weekly dormant digest demo. Append-only — never
       //            overwrites rep-edited entries.
+      //   v4 → v5: rep identity swap — Sarah Thompson → Colton Plante.
+      //            Rewrites rep display fields + every email's from/fromName
+      //            so the user's persisted demo state reflects the new
+      //            identity instead of showing stale Sarah signatures.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -372,6 +376,49 @@ export const useAppStore = create<AppState>()(
             const seedRecord = seedProjects.find((p) => p.id === id);
             if (seedRecord && !existing.has(id)) persisted.projects.push(seedRecord);
           }
+        }
+
+        // v4 → v5: Sarah → Colton rep rename. Rewrite rep display fields,
+        // every email's from/fromName, and any 'Sarah T.' note authors so
+        // existing persisted demo state reflects the new identity.
+        if (Array.isArray(persisted.reps)) {
+          persisted.reps = persisted.reps.map((r: any) =>
+            r?.id === 'rep-sarah'
+              ? {
+                  ...r,
+                  name: 'Colton Plante',
+                  initials: 'CP',
+                  email: 'colton@trinitysurfaces.com',
+                }
+              : r,
+          );
+        }
+        if (Array.isArray(persisted.emails)) {
+          persisted.emails = persisted.emails.map((e: any) => {
+            if (!e) return e;
+            const out = { ...e };
+            if (out.from === 'sarah@trinitysurfaces.com') {
+              out.from = 'colton@trinitysurfaces.com';
+            }
+            if (Array.isArray(out.to)) {
+              out.to = out.to.map((t: string) =>
+                t === 'sarah@trinitysurfaces.com' ? 'colton@trinitysurfaces.com' : t,
+              );
+            }
+            if (out.fromName === 'Sarah T.') out.fromName = 'Colton P.';
+            return out;
+          });
+        }
+        if (Array.isArray(persisted.projects)) {
+          persisted.projects = persisted.projects.map((p: any) => {
+            if (!p || !Array.isArray(p.notes)) return p;
+            return {
+              ...p,
+              notes: p.notes.map((n: any) =>
+                n?.author === 'Sarah T.' ? { ...n, author: 'Colton P.' } : n,
+              ),
+            };
+          });
         }
 
         return persisted;

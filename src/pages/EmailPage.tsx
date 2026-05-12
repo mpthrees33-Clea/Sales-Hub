@@ -195,12 +195,12 @@ export default function EmailPage() {
   }
 
   function sendEmail(to: string, subject: string, body: string) {
-    addEmail({ id: `e-${Date.now()}`, from: 'sarah@trinitysurfaces.com', fromName: 'Sarah T.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'sent', attachedBrochureIds: attachedIds });
+    addEmail({ id: `e-${Date.now()}`, from: 'colton@trinitysurfaces.com', fromName: 'Colton P.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'sent', attachedBrochureIds: attachedIds });
     setComposing(false); setReplyTo(undefined); setAttachedIds([]);
   }
 
   function saveDraft(to: string, subject: string, body: string) {
-    addEmail({ id: `e-${Date.now()}`, from: 'sarah@trinitysurfaces.com', fromName: 'Sarah T.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'drafts', attachedBrochureIds: attachedIds });
+    addEmail({ id: `e-${Date.now()}`, from: 'colton@trinitysurfaces.com', fromName: 'Colton P.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'drafts', attachedBrochureIds: attachedIds });
     setComposing(false);
   }
 

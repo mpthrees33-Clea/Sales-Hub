@@ -122,6 +122,6 @@ function wrapAsReplyBody(fragment: string): string {
   const email = emailId ? state.emails.find((e) => e.id === emailId) : undefined;
   const rep = state.reps.find((r) => r.id === state.currentRepId) ?? state.reps[0];
   const senderFirst = email?.fromName.split(/\s+/)[0] || 'there';
-  const repFirst = rep?.name.split(/\s+/)[0] ?? 'Sarah';
+  const repFirst = rep?.name.split(/\s+/)[0] ?? 'Colton';
   return `Hi ${senderFirst},\n\n${fragment}\n\nThanks,\n${repFirst}`;
 }
