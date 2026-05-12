@@ -24,6 +24,13 @@ import {
   seedActivities, seedGcSubEdges, seedDormantDigests, seedQuotes,
 } from '../data/seedData';
 
+// Append-only ID lists for migration safety. When the seed expands with new
+// canonical demo entities (e.g. dormant customers + projects), the migration
+// uses these to merge missing IDs into existing persisted state without
+// clobbering any rep-edited data.
+const SEED_DORMANT_CUSTOMER_IDS = ['c13', 'c14', 'c15', 'c16', 'c17'];
+const SEED_DORMANT_PROJECT_IDS = ['pr21', 'pr22', 'pr23', 'pr24', 'pr25'];
+
 // Projects are stored as Project & ProjectExtensions so the new opportunity
 // fields are first-class. Existing pages that consume `Project` keep working
 // because every Project field is still present.
@@ -312,11 +319,14 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 3,
+      version: 4,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
       //            seed new entity arrays (reps, locations, threads, etc.)
+      //   v3 → v4: merge in the 5 dormant-only customers + projects added
+      //            for the weekly dormant digest demo. Append-only — never
+      //            overwrites rep-edited entries.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -346,6 +356,24 @@ export const useAppStore = create<AppState>()(
         }
 
         if (!persisted.settings) persisted.settings = DEFAULT_SETTINGS;
+
+        // v3 → v4: merge dormant demo customers + projects if not already
+        // present. Append-only; rep-edited data stays intact.
+        if (Array.isArray(persisted.customers)) {
+          const existing = new Set(persisted.customers.map((c: any) => c?.id));
+          for (const id of SEED_DORMANT_CUSTOMER_IDS) {
+            const seedRecord = seedCustomers.find((c) => c.id === id);
+            if (seedRecord && !existing.has(id)) persisted.customers.push(seedRecord);
+          }
+        }
+        if (Array.isArray(persisted.projects)) {
+          const existing = new Set(persisted.projects.map((p: any) => p?.id));
+          for (const id of SEED_DORMANT_PROJECT_IDS) {
+            const seedRecord = seedProjects.find((p) => p.id === id);
+            if (seedRecord && !existing.has(id)) persisted.projects.push(seedRecord);
+          }
+        }
+
         return persisted;
       },
       // Don't persist file objects (objectURLs) — only metadata persists

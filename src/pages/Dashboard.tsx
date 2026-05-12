@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { DollarSign, Users, FolderOpen, Package, FileText, Receipt, Settings as SettingsIcon, X } from 'lucide-react';
+import {
+  DollarSign, Users, FolderOpen, Package, FileText, Receipt,
+  Settings as SettingsIcon, X, Clock, ChevronRight,
+} from 'lucide-react';
 import clsx from 'clsx';
 import type { AppSettings } from '../types';
+import { maybeGenerateMondayDigest } from '../lib/dormantDigest';
 
 function StatCard({ label, value, icon: Icon, hint }: {
   label: string; value: string | number; icon: React.ElementType; hint?: string;
@@ -184,11 +188,27 @@ function SettingsModal({ initial, onSave, onClose }: {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { projects, customers, sampleOrders, products, settings, updateSettings, setSelectedProjectId } = useAppStore();
+  const currentRepId = useAppStore((s) => s.currentRepId);
+  const dormantDigests = useAppStore((s) => s.dormantDigests);
   const [showSettings, setShowSettings] = useState(false);
 
   const now = new Date();
   const weekStart = startOfWeek(now);
   const monthStart = startOfMonth(now);
+
+  // Generate this week's dormant digest on Dashboard mount. Idempotent —
+  // if a digest already exists for this rep + this week, no-op. The
+  // generator drops re-engagement drafts into the drafts folder and a
+  // "Weekly Dormant Account Review" email into the inbox.
+  useEffect(() => {
+    maybeGenerateMondayDigest(currentRepId);
+  }, [currentRepId]);
+
+  const currentDigest = useMemo(() => {
+    return [...dormantDigests]
+      .filter((d) => d.repId === currentRepId)
+      .sort((a, b) => b.weekOf.localeCompare(a.weekOf))[0];
+  }, [dormantDigests, currentRepId]);
 
   // Sales Created = total $ of projects with createdDate in window
   const salesCreatedWeek = projects
@@ -233,6 +253,35 @@ export default function Dashboard() {
           <span className="text-sm font-medium">Edit budget targets</span>
         </button>
       </div>
+
+      {/* Dormant accounts digest — weekly */}
+      {currentDigest && currentDigest.entries.length > 0 && (
+        <button
+          onClick={() => navigate('/email')}
+          className="w-full text-left bg-surface rounded-xl border border-warning/30 p-5 flex items-start gap-4 hover:border-warning/50 hover:bg-warning/5 transition-colors group"
+        >
+          <div className="p-2.5 rounded-lg bg-warning/10 border border-warning/30 text-warning shrink-0">
+            <Clock size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h3 className="text-sm font-semibold text-fg">
+                Dormant accounts — week of {new Date(currentDigest.weekOf).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+              </h3>
+              <span className="text-xs text-fg-muted">
+                {currentDigest.entries.length} account{currentDigest.entries.length === 1 ? '' : 's'}{' '}
+                · {currentDigest.entries.filter((e) => e.draftEmailId).length} draft{currentDigest.entries.filter((e) => e.draftEmailId).length === 1 ? '' : 's'} ready
+              </span>
+            </div>
+            <p className="text-xs text-fg-muted mt-1">
+              {currentDigest.entries.slice(0, 3).map((e) => e.customerName).join(', ')}
+              {currentDigest.entries.length > 3 ? ` + ${currentDigest.entries.length - 3} more` : ''}
+              {' — '}90+ days dormant, ranked by past opportunity value.
+            </p>
+          </div>
+          <ChevronRight size={16} className="text-fg-faint group-hover:text-warning shrink-0 mt-1" />
+        </button>
+      )}
 
       {/* Performance cards */}
       <div className="grid lg:grid-cols-2 gap-4">

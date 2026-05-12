@@ -160,6 +160,67 @@ export const seedCustomers: Customer[] = [
     ],
     createdDate: '2025-03-10',
   },
+  // ── Dormant-only customers (each has one big quiet project) ──
+  {
+    id: 'c13', name: 'Eli Patterson', company: 'Pinnacle Architects', type: 'Architect',
+    email: 'eli@pinnaclearch.com', phone: '404-555-1301',
+    billingAddress: '4100 Northside Pkwy NW', billingCity: 'Atlanta', billingState: 'GA', billingZip: '30327',
+    contacts: [
+      { id: 'c13-ct1', name: 'Eli Patterson', title: 'Principal', email: 'eli@pinnaclearch.com', phone: '404-555-1301', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c13-s1', label: 'Office', address: '4100 Northside Pkwy NW', city: 'Atlanta', state: 'GA', zip: '30327', isDefault: true },
+    ],
+    createdDate: '2024-06-10',
+  },
+  {
+    id: 'c14', name: 'Roberto Gallo', company: 'Vineyard Hotel Group', type: 'Contractor',
+    email: 'roberto@vineyardhotels.com', phone: '912-555-1401',
+    billingAddress: '500 E River St', billingCity: 'Savannah', billingState: 'GA', billingZip: '31401',
+    contacts: [
+      { id: 'c14-ct1', name: 'Roberto Gallo', title: 'VP Development', email: 'roberto@vineyardhotels.com', phone: '912-555-1401', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c14-s1', label: 'HQ', address: '500 E River St', city: 'Savannah', state: 'GA', zip: '31401', isDefault: true },
+    ],
+    createdDate: '2024-05-22',
+  },
+  {
+    id: 'c15', name: 'Priya Desai', company: 'Sterling Biopharm', type: 'Contractor',
+    email: 'pdesai@sterlingbio.com', phone: '404-555-1501',
+    billingAddress: '2200 Lake Park Dr', billingCity: 'Smyrna', billingState: 'GA', billingZip: '30080',
+    contacts: [
+      { id: 'c15-ct1', name: 'Priya Desai', title: 'Facilities Director', email: 'pdesai@sterlingbio.com', phone: '404-555-1501', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c15-s1', label: 'Office', address: '2200 Lake Park Dr', city: 'Smyrna', state: 'GA', zip: '30080', isDefault: true },
+    ],
+    createdDate: '2024-07-15',
+  },
+  {
+    id: 'c16', name: 'Vivienne Marsh', company: 'Highline Design Studio', type: 'Designer',
+    email: 'viv@highlinedesign.com', phone: '404-555-1601',
+    billingAddress: '888 W Marietta St NW', billingCity: 'Atlanta', billingState: 'GA', billingZip: '30318',
+    contacts: [
+      { id: 'c16-ct1', name: 'Vivienne Marsh', title: 'Founder', email: 'viv@highlinedesign.com', phone: '404-555-1601', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c16-s1', label: 'Studio', address: '888 W Marietta St NW', city: 'Atlanta', state: 'GA', zip: '30318', isDefault: true },
+    ],
+    createdDate: '2024-06-30',
+  },
+  {
+    id: 'c17', name: 'Wes Calhoun', company: 'Calhoun Public Works', type: 'Contractor',
+    email: 'wes@calhounpw.com', phone: '706-555-1701',
+    billingAddress: '320 Court St', billingCity: 'Calhoun', billingState: 'GA', billingZip: '30701',
+    contacts: [
+      { id: 'c17-ct1', name: 'Wes Calhoun', title: 'Director', email: 'wes@calhounpw.com', phone: '706-555-1701', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c17-s1', label: 'Office', address: '320 Court St', city: 'Calhoun', state: 'GA', zip: '30701', isDefault: true },
+    ],
+    createdDate: '2024-08-05',
+  },
 ];
 
 // ── PRODUCTS ─────────────────────────────────────────────────
@@ -615,6 +676,78 @@ export const seedProjects: (Project & ProjectExtensions)[] = [
     developerCustomerId: 'c11', jobLocation: 'Sandy Springs, GA',
     bidders: [],
     lastTouchAt: '2025-04-04T11:30:00Z',
+  },
+
+  // ── Dormant-only opportunities — drive the weekly digest demo ──
+  {
+    id: 'pr21', customerId: 'c13', name: 'Tucker Corporate Office Park', status: 'Lead',
+    description: '4-building suburban office park, ~85,000 sqft total — Pinnacle is architect of record',
+    address: '2400 Mountain Industrial Blvd, Tucker, GA 30084',
+    value: 185000, productIds: ['p1', 'p6'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-08-22', anticipatedOrderDate: '2025-10-01',
+    opportunityId: 'OPP-2024-0318', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'corporate', opportunityStatus: 'on_hold', opportunityStage: 'lead_qualification',
+    nextStep: 'Re-engage Eli — last spec meeting was September',
+    updatedDate: '2024-11-20', architecturalFirmId: 'c13', jobLocation: 'Tucker, GA',
+    bidders: [],
+    lastTouchAt: '2024-11-20T13:00:00Z',
+  },
+  {
+    id: 'pr22', customerId: 'c14', name: 'Vineyard Coastal Resort Phase II', status: 'Lead',
+    description: 'Second-phase expansion — 60 units + spa, hospitality-grade flooring throughout',
+    address: '125 Coastal Way, Tybee Island, GA 31328',
+    value: 240000, productIds: ['p9', 'p4', 'p3'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-07-08', anticipatedOrderDate: '2025-12-15',
+    opportunityId: 'OPP-2024-0265', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'hospitality', opportunityStatus: 'on_hold', opportunityStage: 'design',
+    nextStep: 'Check timeline with Roberto — financing was pending',
+    updatedDate: '2024-10-05', developerCustomerId: 'c14', jobLocation: 'Tybee Island, GA',
+    bidders: [],
+    lastTouchAt: '2024-10-05T09:30:00Z',
+  },
+  {
+    id: 'pr23', customerId: 'c15', name: 'Sterling R&D Lab Buildout', status: 'Bidding',
+    description: 'Pharma R&D facility — antimicrobial vinyl, lab-grade requirements',
+    address: '2200 Lake Park Dr, Smyrna, GA 30080',
+    value: 95000, productIds: ['p8', 'p6'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-09-12', anticipatedOrderDate: '2025-08-01',
+    opportunityId: 'OPP-2024-0354', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'healthcare', opportunityStatus: 'on_hold', opportunityStage: 'bidding',
+    nextStep: 'Resubmit LVT spec with revised antimicrobial cert',
+    updatedDate: '2024-12-08', endUserCustomerId: 'c15', jobLocation: 'Smyrna, GA',
+    bidders: [{ id: 'bid-pr23-1', customerId: 'c15', quotedDate: '2024-11-15', quotedAmount: 92000 }],
+    lastTouchAt: '2024-12-08T11:00:00Z',
+  },
+  {
+    id: 'pr24', customerId: 'c16', name: 'West Midtown Boutique Residence', status: 'Lead',
+    description: 'Custom boutique residence — premium hardwood throughout main living areas',
+    address: '930 Brady Ave NW, Atlanta, GA 30318',
+    value: 42000, productIds: ['p7', 'p3'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-08-30', anticipatedOrderDate: '2025-07-01',
+    opportunityId: 'OPP-2024-0327', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'single_family', opportunityStatus: 'on_hold', opportunityStage: 'design',
+    nextStep: 'Follow up on revised palette — client was traveling',
+    updatedDate: '2024-11-12', architecturalFirmId: 'c16', jobLocation: 'Atlanta, GA',
+    bidders: [],
+    lastTouchAt: '2024-11-12T15:45:00Z',
+  },
+  {
+    id: 'pr25', customerId: 'c17', name: 'Calhoun Municipal Building', status: 'Bidding',
+    description: 'New municipal services building — GSA-grade flooring + carpet, public sector spec',
+    address: '320 Court St, Calhoun, GA 30701',
+    value: 128000, productIds: ['p4', 'p6', 'p1'], sampleOrderIds: [],
+    notes: [],
+    createdDate: '2024-07-22', anticipatedOrderDate: '2025-09-30',
+    opportunityId: 'OPP-2024-0289', salesRepId: 'rep-sarah', salesLocationId: '310',
+    projectType: 'government', opportunityStatus: 'on_hold', opportunityStage: 'bidding',
+    nextStep: 'Resubmit public-sector pricing — council reviewed budget Oct 22',
+    updatedDate: '2024-10-22', gcCustomerId: 'c17', jobLocation: 'Calhoun, GA',
+    bidders: [],
+    lastTouchAt: '2024-10-22T10:15:00Z',
   },
 ];
 
