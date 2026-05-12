@@ -25,6 +25,8 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
   const currentRepId = useAppStore((s) => s.currentRepId);
 
   const [customerId, setCustomerId] = useState('');
+  const [contactId, setContactId] = useState('');
+  const [shipToAddressId, setShipToAddressId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [futureOppName, setFutureOppName] = useState('');
   const [items, setItems] = useState<SampleOrderItem[]>([]);
@@ -48,9 +50,26 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
   function selectCustomer(id: string) {
     setCustomerId(id);
     const c = customers.find((x) => x.id === id);
+    // Default contact = primary, fallback to first
+    const primaryContact = c?.contacts.find((ct) => ct.isPrimary) ?? c?.contacts[0];
+    setContactId(primaryContact?.id ?? '');
+    setShipName(primaryContact?.name ?? c?.name ?? '');
+    // Default ship-to = the one flagged default
     const def = c?.shipToAddresses.find((a) => a.isDefault) ?? c?.shipToAddresses[0];
-    if (c) { setShipName(c.name); }
+    setShipToAddressId(def?.id ?? '');
     if (def) { setShipAddr(def.address); setShipCity(def.city); setShipState(def.state); setShipZip(def.zip); }
+  }
+
+  function selectContact(id: string) {
+    setContactId(id);
+    const ct = customer?.contacts.find((c) => c.id === id);
+    if (ct) setShipName(ct.name);
+  }
+
+  function selectShipTo(id: string) {
+    setShipToAddressId(id);
+    const a = customer?.shipToAddresses.find((x) => x.id === id);
+    if (a) { setShipAddr(a.address); setShipCity(a.city); setShipState(a.state); setShipZip(a.zip); }
   }
 
   function addItem(productId: string) {
@@ -89,7 +108,10 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
       addOpportunityCandidate(candidate);
       addSampleOrder({
         id: orderId,
-        customerId, candidateId: candidate.id, items, status: 'Pending',
+        customerId,
+        contactId: contactId || undefined,
+        shipToAddressId: shipToAddressId || undefined,
+        candidateId: candidate.id, items, status: 'Pending',
         orderedDate: today,
         shippingName: shipName, shippingAddress: shipAddr,
         shippingCity: shipCity, shippingState: shipState, shippingZip: shipZip,
@@ -97,7 +119,10 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
     } else {
       addSampleOrder({
         id: orderId,
-        customerId, projectId, items, status: 'Pending',
+        customerId,
+        contactId: contactId || undefined,
+        shipToAddressId: shipToAddressId || undefined,
+        projectId, items, status: 'Pending',
         orderedDate: today,
         shippingName: shipName, shippingAddress: shipAddr,
         shippingCity: shipCity, shippingState: shipState, shippingZip: shipZip,
@@ -110,22 +135,61 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
     <div className="bg-surface rounded-lg border border-divider p-4 space-y-4">
       <h3 className="font-semibold text-fg text-sm">New Sample Order</h3>
 
-      {/* Step 1 — Customer */}
+      {/* Step 1 — Customer (company) */}
       <div>
-        <label className="block text-xs font-medium text-fg-muted mb-1">1. Customer</label>
+        <label className="block text-xs font-medium text-fg-muted mb-1">1. Customer (company)</label>
         <select className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
           value={customerId} onChange={(e) => selectCustomer(e.target.value)}>
           <option value="">Select customer…</option>
           {customers.map((c) => <option key={c.id} value={c.id}>{c.company}</option>)}
         </select>
-        {customer && customer.shipToAddresses.length > 1 && (
-          <select className="w-full mt-1 text-xs border border-divider rounded-lg px-3 py-2"
-            onChange={(e) => {
-              const a = customer.shipToAddresses.find((x) => x.id === e.target.value);
-              if (a) { setShipAddr(a.address); setShipCity(a.city); setShipState(a.state); setShipZip(a.zip); }
-            }}>
-            {customer.shipToAddresses.map((a) => <option key={a.id} value={a.id}>{a.label} — {a.address}</option>)}
-          </select>
+
+        {/* Contact picker — appears once a customer is chosen. At firms with
+            many people on staff, this is who actually gets the box. */}
+        {customer && (
+          <div className="mt-2">
+            <label className="block text-xs font-medium text-fg-muted mb-1">
+              Contact (who is this for?)
+            </label>
+            <select
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+              value={contactId}
+              onChange={(e) => selectContact(e.target.value)}
+            >
+              {customer.contacts.length === 0 && <option value="">No contacts on file</option>}
+              {customer.contacts.map((ct) => (
+                <option key={ct.id} value={ct.id}>
+                  {ct.name}{ct.title ? ` — ${ct.title}` : ''}{ct.isPrimary ? ' (primary)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-fg-faint mt-1">
+              Tip: this is who the follow-up email will go to once the box is delivered.
+            </p>
+          </div>
+        )}
+
+        {/* Ship-to picker — always shown when a customer is selected, even
+            if they only have one address on file. Makes the relationship
+            between contact and destination explicit. */}
+        {customer && (
+          <div className="mt-2">
+            <label className="block text-xs font-medium text-fg-muted mb-1">
+              Ship-to address
+            </label>
+            <select
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+              value={shipToAddressId}
+              onChange={(e) => selectShipTo(e.target.value)}
+            >
+              {customer.shipToAddresses.length === 0 && <option value="">No addresses on file</option>}
+              {customer.shipToAddresses.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label} — {a.address}, {a.city} {a.state}{a.isDefault ? ' (default)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
@@ -312,8 +376,24 @@ export default function SamplesPage() {
                         </div>
                       ))}
                     </div>
+                    {(() => {
+                      const contact = order.contactId && customer
+                        ? customer.contacts.find((c) => c.id === order.contactId)
+                        : undefined;
+                      return contact ? (
+                        <p className="text-xs text-fg-muted">
+                          <span className="text-fg-faint">For:</span> {contact.name}
+                          {contact.title ? ` — ${contact.title}` : ''}
+                        </p>
+                      ) : null;
+                    })()}
                     <p className="text-xs text-fg-muted">{order.shippingName} · {order.shippingAddress}, {order.shippingCity}, {order.shippingState} {order.shippingZip}</p>
                     {order.trackingNumber && <p className="text-xs text-accent-light">Track: {order.trackingNumber}</p>}
+                    {order.followUpDraftEmailId && (
+                      <p className="text-xs text-accent-light flex items-center gap-1">
+                        <Sparkles size={10} /> Follow-up draft ready in your Drafts folder
+                      </p>
+                    )}
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-fg-faint">Status:</label>
                       <select

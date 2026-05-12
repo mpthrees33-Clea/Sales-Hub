@@ -282,7 +282,20 @@ export const useAppStore = create<AppState>()(
       // Sample Orders
       addSampleOrder: (o) => set((s) => ({ sampleOrders: [...s.sampleOrders, o] })),
       updateSampleOrder: (id, patch) =>
-        set((s) => ({ sampleOrders: s.sampleOrders.map((o) => o.id === id ? { ...o, ...patch } : o) })),
+        set((s) => ({
+          sampleOrders: s.sampleOrders.map((o) => {
+            if (o.id !== id) return o;
+            // Stamp deliveredAt the first time the order transitions to
+            // Delivered. The sample follow-up sweep keys off this timestamp
+            // to draft a next-morning follow-up email.
+            const becomingDelivered =
+              patch.status === 'Delivered' && o.status !== 'Delivered' && !o.deliveredAt;
+            const delivStamp = becomingDelivered
+              ? { deliveredAt: new Date().toISOString() }
+              : {};
+            return { ...o, ...patch, ...delivStamp };
+          }),
+        })),
 
       // Emails
       addEmail: (e) => set((s) => ({ emails: [...s.emails, e] })),
@@ -411,7 +424,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 10,
+      version: 11,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -445,6 +458,10 @@ export const useAppStore = create<AppState>()(
       //            Also strips product slides from built-in template
       //            presentations (per user feedback: presentations should
       //            only reference brochures). User-created decks untouched.
+      //   v10 → v11: SampleOrder gains contactId / shipToAddressId /
+      //            deliveredAt / followUpDraftEmailId fields. Optional —
+      //            no rewrite needed for persisted state. The follow-up
+      //            sweep on App mount will tolerate missing fields.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -617,6 +634,22 @@ export const useAppStore = create<AppState>()(
         // tags a sample order as "future opportunity".
         if (!Array.isArray(persisted.opportunityCandidates)) {
           persisted.opportunityCandidates = [];
+        }
+
+        // v10 → v11: backfill deliveredAt for any pre-existing Delivered
+        // sample orders so the new sample-follow-up rule can generate a
+        // draft for them on first load. Backdate to yesterday at 5pm UTC
+        // — past the 12h threshold the sweep checks for. Idempotent:
+        // only fills it in if missing.
+        if (Array.isArray(persisted.sampleOrders)) {
+          const yesterday5pm = new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString();
+          persisted.sampleOrders = persisted.sampleOrders.map((o: any) => {
+            if (!o || typeof o !== 'object') return o;
+            if (o.status === 'Delivered' && !o.deliveredAt) {
+              return { ...o, deliveredAt: yesterday5pm };
+            }
+            return o;
+          });
         }
 
         return persisted;

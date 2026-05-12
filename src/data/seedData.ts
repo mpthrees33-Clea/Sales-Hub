@@ -1114,7 +1114,12 @@ export const seedProjects: (Project & ProjectExtensions)[] = [
 export const seedSampleOrders: SampleOrder[] = [
   {
     id: 'so1', customerId: 'c1', projectId: 'pr1', status: 'Delivered',
+    contactId: 'c1-ct1', shipToAddressId: 'c1-s1',
     orderedDate: '2025-02-20',
+    // Backdated so the sample-delivery follow-up rule generates a draft
+    // immediately on first load — demonstrates the "next morning"
+    // behavior without waiting 12h after a manual delivery flip.
+    deliveredAt: '2026-05-11T17:00:00Z',
     items: [
       { productId: 'p2', productName: 'BlueSky SPC', privateLabelName: 'Armstrong Vivero Plus', quantity: 2 },
       { productId: 'p4', productName: 'GraniteShield Tile', privateLabelName: 'Daltile Degree', quantity: 3 },

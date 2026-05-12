@@ -15,7 +15,10 @@ const FOLDERS: { key: Folder; label: string }[] = [
 ];
 
 // ── AI Tools Panel ─────────────────────────────────────────
-function AIToolsPanel({ onAttach }: { onAttach: (id: string) => void }) {
+function AIToolsPanel({ onAttach, onUseTemplate }: {
+  onAttach: (id: string) => void;
+  onUseTemplate: (template: { label: string; subject?: string; body: string }) => void;
+}) {
   const { products, brochures } = useAppStore();
   const [lookup, setLookup] = useState('');
   const [quoteProduct, setQuoteProduct] = useState('');
@@ -41,9 +44,36 @@ function AIToolsPanel({ onAttach }: { onAttach: (id: string) => void }) {
     : [];
 
   const TEMPLATES = [
-    { keyword: 'quote', label: 'Quote Follow-Up', body: 'Thank you for your interest! I wanted to follow up on the quote I sent over. Please let me know if you have any questions or need any adjustments.' },
-    { keyword: 'spec', label: 'Spec Sheet Response', body: 'Hi, I\'ve attached the specification sheet for the products you requested. Please don\'t hesitate to reach out if you need additional technical details.' },
-    { keyword: 'sample', label: 'Sample Arrival', body: 'Great news — your samples should be arriving shortly! Once you\'ve had a chance to review them, I\'d love to hear your thoughts and next steps.' },
+    {
+      keyword: 'quote',
+      label: 'Quote Follow-Up',
+      subject: 'Following up on your quote',
+      body: 'Hi,\n\nWanted to follow up on the quote I sent over. Did the numbers come in where you needed them, or is there a target we should be working toward? Happy to revise on color, size, or qty if anything has shifted on your end.\n\nLet me know — I can have a refresh out same-day.\n\nThanks,\nColton',
+    },
+    {
+      keyword: 'spec',
+      label: 'Spec Sheet Response',
+      subject: 'Spec sheet attached',
+      body: 'Hi,\n\nSpec sheet is attached. Quick rundown of the key numbers:\n\n  • Wear layer\n  • Plank dimensions\n  • Install method + underlayment notes\n\nDo you know which color/finish the team is leaning toward? That changes the pricing tier, so I want to make sure I send you the right number when you\'re ready for a quote.\n\nThanks,\nColton',
+    },
+    {
+      keyword: 'sample',
+      label: 'Sample Arrival',
+      subject: 'Your samples are on the way',
+      body: 'Great news — your samples should land in the next day or two. Once you\'ve had a chance to walk them through with the team, I\'d love to hear:\n\n  • Did the look and feel match what you were expecting?\n  • Are we tracking to a specific project / spec?\n  • Anything else I can send for comparison?\n\nThanks,\nColton',
+    },
+    {
+      keyword: 'sample-followup',
+      label: 'Sample Follow-Up (delivered)',
+      subject: 'Following up on your samples',
+      body: 'Hi,\n\nJust following up — the samples should have landed yesterday. What did you (or the team) think?\n\nA couple of things I\'d love to hear:\n  • Color/finish locked in?\n  • Project name + GC if you have one?\n  • Want me to send anything for comparison?\n\nOnce we have those nailed down I can get pricing in your hands quickly.\n\nThanks,\nColton',
+    },
+    {
+      keyword: 'lunch',
+      label: 'Lunch & Learn Invite',
+      subject: 'Lunch & learn at your office?',
+      body: 'Hi,\n\nWould love to come by and do a quick lunch & learn for the team — I\'ll bring food and walk us through our newest LVP + hardwood lines (specs, install, pricing). Usually runs 30–45 min.\n\nGot a Tuesday or Wednesday open in the next couple weeks? Happy to work around your calendar.\n\nThanks,\nColton',
+    },
   ];
 
   return (
@@ -98,41 +128,53 @@ function AIToolsPanel({ onAttach }: { onAttach: (id: string) => void }) {
         )}
       </div>
 
-      {/* Templates */}
+      {/* Templates — click to inject into compose. If no compose is open,
+          we open one. If a reply is being drafted, the body is pre-filled
+          or appended to. Clipboard copy is kept as a backup so the
+          existing muscle memory still works (e.g. paste into a different
+          tool). */}
       <div className="px-3 py-3">
         <p className="text-xs font-medium text-fg-muted mb-1.5 flex items-center gap-1"><FileText size={11} /> Templates</p>
         {TEMPLATES.map((t) => (
-          <button key={t.keyword} onClick={() => navigator.clipboard?.writeText(t.body)}
-            className="w-full text-left px-2 py-1.5 text-xs bg-surface border border-divider rounded mb-1 hover:bg-accent/10 hover:border-accent/40 text-fg">
+          <button
+            key={t.keyword}
+            onClick={() => {
+              onUseTemplate(t);
+              navigator.clipboard?.writeText(t.body);
+            }}
+            className="w-full text-left px-2 py-1.5 text-xs bg-surface border border-divider rounded mb-1 hover:bg-accent/10 hover:border-accent/40 text-fg"
+          >
             {t.label}
           </button>
         ))}
-        <p className="text-xs text-fg-faint mt-1">Click to copy to clipboard</p>
+        <p className="text-xs text-fg-faint mt-1">Click to draft into composition (also copies).</p>
       </div>
     </div>
   );
 }
 
 // ── Compose Panel ──────────────────────────────────────────
-function ComposePanel({ replyTo, attachedIds, onSend, onDraft }: {
-  replyTo?: EmailMessage;
+// State is lifted up to EmailPage so the AI Tools template buttons can
+// inject content into the active compose. Fully controlled component.
+function ComposePanel({ to, subject, body, attachedIds, onChange, onSend, onDraft }: {
+  to: string;
+  subject: string;
+  body: string;
   attachedIds: string[];
-  onSend: (to: string, subject: string, body: string) => void;
-  onDraft: (to: string, subject: string, body: string) => void;
+  onChange: (patch: { to?: string; subject?: string; body?: string }) => void;
+  onSend: () => void;
+  onDraft: () => void;
 }) {
   const { brochures } = useAppStore();
-  const [to, setTo] = useState(replyTo ? replyTo.from : '');
-  const [subject, setSubject] = useState(replyTo ? `Re: ${replyTo.subject}` : '');
-  const [body, setBody] = useState('');
 
   return (
     <div className="flex flex-col h-full p-4 space-y-2">
       <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-        placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
+        placeholder="To" value={to} onChange={(e) => onChange({ to: e.target.value })} />
       <input className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-        placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+        placeholder="Subject" value={subject} onChange={(e) => onChange({ subject: e.target.value })} />
       <textarea className="flex-1 text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-        placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} style={{ minHeight: 120 }} />
+        placeholder="Write your message…" value={body} onChange={(e) => onChange({ body: e.target.value })} style={{ minHeight: 120 }} />
       {attachedIds.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {attachedIds.map((id) => {
@@ -142,10 +184,10 @@ function ComposePanel({ replyTo, attachedIds, onSend, onDraft }: {
         </div>
       )}
       <div className="flex gap-2">
-        <button onClick={() => onSend(to, subject, body)} className="flex items-center gap-1 px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-dim">
+        <button onClick={onSend} className="flex items-center gap-1 px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-dim">
           <Send size={13} /> Send
         </button>
-        <button onClick={() => onDraft(to, subject, body)} className="px-4 py-2 text-sm text-fg-muted rounded-lg hover:bg-surface-1 border border-divider">
+        <button onClick={onDraft} className="px-4 py-2 text-sm text-fg-muted rounded-lg hover:bg-surface-1 border border-divider">
           Save Draft
         </button>
       </div>
@@ -170,6 +212,13 @@ export default function EmailPage() {
   const [aiOpen, setAiOpen] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
+  // Lifted compose state — lets the AI Tools template buttons inject text
+  // directly into the active compose body without ComposePanel having to
+  // own a separate copy.
+  const [composeTo, setComposeTo] = useState('');
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+
   const folderEmails = [...emails].filter((e) => e.folder === folder).sort((a, b) => b.date.localeCompare(a.date));
   const unread = (f: Folder) => emails.filter((e) => e.folder === f && !e.isRead).length;
 
@@ -191,17 +240,68 @@ export default function EmailPage() {
 
   function reply() {
     if (!selected) return;
-    setReplyTo(selected); setAttachedIds([]); setComposing(true);
+    setReplyTo(selected);
+    setAttachedIds([]);
+    setComposeTo(selected.from);
+    setComposeSubject(selected.subject.startsWith('Re:') ? selected.subject : `Re: ${selected.subject}`);
+    setComposeBody('');
+    setComposing(true);
   }
 
-  function sendEmail(to: string, subject: string, body: string) {
-    addEmail({ id: `e-${Date.now()}`, from: 'colton@trinitysurfaces.com', fromName: 'Colton P.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'sent', attachedBrochureIds: attachedIds });
+  function openBlankCompose() {
+    setComposing(true);
+    setSelected(null);
+    setReplyTo(undefined);
+    setAttachedIds([]);
+    setComposeTo('');
+    setComposeSubject('');
+    setComposeBody('');
+  }
+
+  // Inject a template into the active compose. If no compose is open yet,
+  // open one (a reply if an email is selected; a blank compose otherwise).
+  // Body is replaced if empty, appended otherwise — preserves anything the
+  // rep has already typed.
+  function useTemplate(t: { label: string; subject?: string; body: string }) {
+    if (!composing) {
+      if (selected && selected.folder === 'inbox') {
+        // start a reply pre-filled with the template body
+        setReplyTo(selected);
+        setAttachedIds([]);
+        setComposeTo(selected.from);
+        setComposeSubject(selected.subject.startsWith('Re:') ? selected.subject : `Re: ${selected.subject}`);
+        setComposeBody(t.body);
+      } else {
+        setComposing(true);
+        setSelected(null);
+        setReplyTo(undefined);
+        setAttachedIds([]);
+        setComposeTo('');
+        setComposeSubject(t.subject ?? '');
+        setComposeBody(t.body);
+      }
+      setComposing(true);
+      return;
+    }
+    // Already composing — merge template content
+    if (!composeSubject && t.subject) setComposeSubject(t.subject);
+    if (composeBody.trim().length === 0) {
+      setComposeBody(t.body);
+    } else {
+      setComposeBody(`${composeBody.trimEnd()}\n\n${t.body}`);
+    }
+  }
+
+  function sendEmail() {
+    addEmail({ id: `e-${Date.now()}`, from: 'colton@trinitysurfaces.com', fromName: 'Colton P.', to: [composeTo], subject: composeSubject, body: composeBody, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'sent', attachedBrochureIds: attachedIds });
     setComposing(false); setReplyTo(undefined); setAttachedIds([]);
+    setComposeTo(''); setComposeSubject(''); setComposeBody('');
   }
 
-  function saveDraft(to: string, subject: string, body: string) {
-    addEmail({ id: `e-${Date.now()}`, from: 'colton@trinitysurfaces.com', fromName: 'Colton P.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'drafts', attachedBrochureIds: attachedIds });
+  function saveDraft() {
+    addEmail({ id: `e-${Date.now()}`, from: 'colton@trinitysurfaces.com', fromName: 'Colton P.', to: [composeTo], subject: composeSubject, body: composeBody, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'drafts', attachedBrochureIds: attachedIds });
     setComposing(false);
+    setComposeTo(''); setComposeSubject(''); setComposeBody('');
   }
 
   async function handleGenerateDraft() {
@@ -254,7 +354,7 @@ export default function EmailPage() {
         mobileShowingReader && 'hidden md:flex',
       )}>
         <button
-          onClick={() => { setComposing(true); setSelected(null); setReplyTo(undefined); setAttachedIds([]); }}
+          onClick={openBlankCompose}
           className="shrink-0 px-3 md:px-2 py-1.5 md:mx-2 md:mb-2 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent-dim flex items-center gap-1"
         >
           <Pencil size={11} /> Compose
@@ -326,7 +426,19 @@ export default function EmailPage() {
             </div>
           )}
           {composing ? (
-            <ComposePanel replyTo={replyTo} attachedIds={attachedIds} onSend={sendEmail} onDraft={saveDraft} />
+            <ComposePanel
+              to={composeTo}
+              subject={composeSubject}
+              body={composeBody}
+              attachedIds={attachedIds}
+              onChange={(patch) => {
+                if (patch.to !== undefined) setComposeTo(patch.to);
+                if (patch.subject !== undefined) setComposeSubject(patch.subject);
+                if (patch.body !== undefined) setComposeBody(patch.body);
+              }}
+              onSend={sendEmail}
+              onDraft={saveDraft}
+            />
           ) : selected ? (
             <div className="flex flex-col">
               <div className="p-5 space-y-3">
@@ -387,7 +499,10 @@ export default function EmailPage() {
             brochure attach, quick quote, templates). */}
         {aiOpen && (
           <div className="hidden md:block">
-            <AIToolsPanel onAttach={(id) => setAttachedIds((prev) => prev.includes(id) ? prev : [...prev, id])} />
+            <AIToolsPanel
+              onAttach={(id) => setAttachedIds((prev) => prev.includes(id) ? prev : [...prev, id])}
+              onUseTemplate={useTemplate}
+            />
           </div>
         )}
       </div>

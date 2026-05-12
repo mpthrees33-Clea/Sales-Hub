@@ -286,6 +286,13 @@ export interface SampleOrderItem {
 export interface SampleOrder {
   id: string;
   customerId: string;
+  // Which person at the customer received the samples. Optional for legacy
+  // orders that pre-date the contact picker; required on new orders.
+  contactId?: string;
+  // Which of the customer's saved ship-to addresses we used. The flat
+  // shipping* fields below remain authoritative (what actually printed on
+  // the label) but shipToAddressId lets the AI follow-up know the audience.
+  shipToAddressId?: string;
   // Project link is optional — a sample order can be tied to a real Project
   // OR to a NewOpportunityCandidate while the rep decides whether to add
   // the opportunity to CRM. Exactly one of the two should be set in
@@ -295,6 +302,13 @@ export interface SampleOrder {
   items: SampleOrderItem[];
   status: SampleOrderStatus;
   orderedDate: string;
+  // ISO timestamp set when status transitions to 'Delivered'. The
+  // sample-follow-up rule uses this to decide when to draft a follow-up
+  // (next morning after delivery, once).
+  deliveredAt?: string;
+  // ID of the auto-drafted follow-up email if one has been generated.
+  // Prevents the sweep from spamming duplicates.
+  followUpDraftEmailId?: string;
   shippingName: string;
   shippingAddress: string;
   shippingCity: string;
