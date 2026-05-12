@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { X } from 'lucide-react';
 import type {
   ProjectExtensions, ProjectType, OpportunityStage, OpportunityStatus,
-  Project,
+  Project, Customer, CustomerRole,
 } from '../../types';
+import SearchableCombobox, { type ComboboxOption } from '../common/SearchableCombobox';
+import { getCustomerRoles } from '../../data/seedData';
 
 interface Props { onClose: () => void; }
 
@@ -78,6 +80,21 @@ export default function NewProjectModal({ onClose }: Props) {
       return;
     }
     const now = new Date();
+    const primaryCustomer = customers.find((c) => c.id === form.customerId);
+    // Auto-fill stakeholder slots the rep didn't explicitly set, based on
+    // the primary customer's roles. E.g. customer is Greer Architecture
+    // (role: architect) → architecturalFirmId auto-fills to the customer.
+    const primaryRoles = primaryCustomer ? getCustomerRoles(primaryCustomer) : [];
+    const autoArchitect = form.architecturalFirmId
+      || ((primaryRoles.includes('architect') || primaryCustomer?.type === 'Architect' || primaryCustomer?.type === 'Designer')
+          ? form.customerId : '');
+    const autoGc = form.gcCustomerId
+      || (primaryRoles.includes('gc') ? form.customerId : '');
+    const autoDeveloper = form.developerCustomerId
+      || (primaryRoles.includes('developer') ? form.customerId : '');
+    const autoEndUser = form.endUserCustomerId
+      || (primaryRoles.includes('end_user') ? form.customerId : '');
+
     const newProject: Project & ProjectExtensions = {
       id: `pr-${Date.now()}`,
       customerId: form.customerId,
@@ -104,10 +121,10 @@ export default function NewProjectModal({ onClose }: Props) {
       nextStep: form.nextStep.trim() || undefined,
       updatedDate: now.toISOString(),
       jobLocation: form.jobLocation.trim() || undefined,
-      architecturalFirmId: form.architecturalFirmId || undefined,
-      gcCustomerId: form.gcCustomerId || undefined,
-      developerCustomerId: form.developerCustomerId || undefined,
-      endUserCustomerId: form.endUserCustomerId || undefined,
+      architecturalFirmId: autoArchitect || undefined,
+      gcCustomerId: autoGc || undefined,
+      developerCustomerId: autoDeveloper || undefined,
+      endUserCustomerId: autoEndUser || undefined,
       bidders: [],
       lastTouchAt: now.toISOString(),
     };
@@ -182,22 +199,29 @@ export default function NewProjectModal({ onClose }: Props) {
 
           {/* ── Stakeholders ── */}
           <Section title="Stakeholders (optional)">
+            <p className="text-xs text-fg-faint -mt-1 mb-1">
+              Each picker is filtered to customers who play that role. GC + End User include a "Same as developer" option for design-build firms.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Architect">
-                <Select value={form.architecturalFirmId} onChange={(v) => set('architecturalFirmId', v)}
-                  options={[{ value: '', label: '— Not assigned —' }, ...customers.filter((c) => c.type === 'Architect' || c.type === 'Designer').map((c) => ({ value: c.id, label: c.company }))]} />
+                <StakeholderCombobox role="architect" value={form.architecturalFirmId}
+                  onChange={(v) => set('architecturalFirmId', v)} customers={customers}
+                  developerId={form.developerCustomerId} />
               </Field>
               <Field label="GC">
-                <Select value={form.gcCustomerId} onChange={(v) => set('gcCustomerId', v)}
-                  options={[{ value: '', label: '— Not assigned —' }, ...customers.filter((c) => c.type === 'Contractor').map((c) => ({ value: c.id, label: c.company }))]} />
+                <StakeholderCombobox role="gc" value={form.gcCustomerId}
+                  onChange={(v) => set('gcCustomerId', v)} customers={customers}
+                  developerId={form.developerCustomerId} />
               </Field>
               <Field label="Developer">
-                <Select value={form.developerCustomerId} onChange={(v) => set('developerCustomerId', v)}
-                  options={[{ value: '', label: '— Not assigned —' }, ...customers.map((c) => ({ value: c.id, label: `${c.company} (${c.type})` }))]} />
+                <StakeholderCombobox role="developer" value={form.developerCustomerId}
+                  onChange={(v) => set('developerCustomerId', v)} customers={customers}
+                  developerId={form.developerCustomerId} />
               </Field>
               <Field label="End User">
-                <Select value={form.endUserCustomerId} onChange={(v) => set('endUserCustomerId', v)}
-                  options={[{ value: '', label: '— Not assigned —' }, ...customers.map((c) => ({ value: c.id, label: `${c.company} (${c.type})` }))]} />
+                <StakeholderCombobox role="end_user" value={form.endUserCustomerId}
+                  onChange={(v) => set('endUserCustomerId', v)} customers={customers}
+                  developerId={form.developerCustomerId} />
               </Field>
             </div>
           </Section>
@@ -251,5 +275,58 @@ function Select({
     <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
+  );
+}
+
+// Role-filtered searchable picker shared by all 4 stakeholder slots in the
+// new-opportunity form. Same component is used in ProjectDetailPanel.
+function StakeholderCombobox({
+  role, value, onChange, customers, developerId,
+}: {
+  role: CustomerRole;
+  value: string;
+  onChange: (v: string) => void;
+  customers: Customer[];
+  developerId: string;
+}) {
+  const options = useMemo<ComboboxOption[]>(() => {
+    const eligible = customers.filter((c) => {
+      const roles = getCustomerRoles(c);
+      if (roles.includes(role)) return true;
+      if (roles.length === 0) {
+        if (role === 'architect') return c.type === 'Architect' || c.type === 'Designer';
+        if (role === 'gc') return c.type === 'Contractor';
+        if (role === 'end_user') return true;
+      }
+      return false;
+    });
+    eligible.sort((a, b) => a.company.localeCompare(b.company));
+    const opts: ComboboxOption[] = eligible.map((c) => ({
+      value: c.id,
+      label: c.company,
+      sublabel: `${c.contacts[0]?.name ?? c.name} · ${c.type}`,
+    }));
+    // GC + End User get "Same as developer" pinned when relevant.
+    if ((role === 'gc' || role === 'end_user') && developerId && developerId !== value) {
+      const dev = customers.find((c) => c.id === developerId);
+      if (dev) {
+        opts.unshift({
+          value: developerId,
+          label: `Same as developer (${dev.company})`,
+          sublabel: 'Design-build / same-firm pattern',
+          pinned: true,
+        });
+      }
+    }
+    return opts;
+  }, [customers, role, developerId, value]);
+
+  return (
+    <SearchableCombobox
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder="— Not assigned —"
+    />
   );
 }

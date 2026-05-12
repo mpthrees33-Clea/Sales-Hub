@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X, MessageSquare, Briefcase, Building2, HardHat, Home,
   Calendar, MapPin, User as UserIcon, Receipt, Mail, TrendingUp, Clock,
@@ -9,9 +9,12 @@ import { useAppStore } from '../../store/useAppStore';
 import type {
   Project, ProjectExtensions, ProjectStatus,
   OpportunityStatus, OpportunityStage, ProjectType, Activity,
+  Customer, CustomerRole,
 } from '../../types';
 import { buildOpportunitySummary } from '../../lib/opportunityAI';
 import CmdLinkModal from './CmdLinkModal';
+import SearchableCombobox, { type ComboboxOption } from '../common/SearchableCombobox';
+import { getCustomerRoles } from '../../data/seedData';
 
 type ExtendedProject = Project & ProjectExtensions;
 
@@ -121,6 +124,47 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
   const [noteText, setNoteText] = useState('');
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+
+  // Auto-populate stakeholders from the primary customer's roles the first
+  // time the panel opens a project that has *no* stakeholders set at all.
+  // Once at least one stakeholder is present we assume the rep has been
+  // through it and won't overwrite anything. Tracked per-project-id so a
+  // close + reopen on the same project won't re-fill cleared slots.
+  const autoFilledRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!customer || autoFilledRef.current.has(project.id)) return;
+    const anyAssigned = Boolean(
+      project.architecturalFirmId ||
+      project.gcCustomerId ||
+      project.developerCustomerId ||
+      project.endUserCustomerId,
+    );
+    if (anyAssigned) {
+      autoFilledRef.current.add(project.id);
+      return;
+    }
+    // No stakeholders set — populate based on the primary customer's roles.
+    const roles = getCustomerRoles(customer);
+    const patch: Partial<Project & ProjectExtensions> = {};
+    if (roles.includes('architect') || customer.type === 'Architect' || customer.type === 'Designer') {
+      patch.architecturalFirmId = customer.id;
+    }
+    if (roles.includes('gc')) {
+      patch.gcCustomerId = customer.id;
+    }
+    if (roles.includes('developer')) {
+      patch.developerCustomerId = customer.id;
+    }
+    if (roles.includes('end_user')) {
+      patch.endUserCustomerId = customer.id;
+    }
+    autoFilledRef.current.add(project.id);
+    if (Object.keys(patch).length > 0) {
+      updateProject(project.id, patch);
+    }
+    // Only depend on project.id so this runs once per project open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id]);
 
   function set<K extends keyof (Project & ProjectExtensions)>(
     key: K,
@@ -303,30 +347,38 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <StakeholderRow
               roleLabel="Architect"
+              roleKey="architect"
               icon={Briefcase}
               customer={architect}
-              customers={customers}
+              allCustomers={customers}
+              developerId={project.developerCustomerId}
               onChange={(id) => set('architecturalFirmId', id)}
             />
             <StakeholderRow
               roleLabel="GC"
+              roleKey="gc"
               icon={HardHat}
               customer={gc}
-              customers={customers}
+              allCustomers={customers}
+              developerId={project.developerCustomerId}
               onChange={(id) => set('gcCustomerId', id)}
             />
             <StakeholderRow
               roleLabel="Developer"
+              roleKey="developer"
               icon={Building2}
               customer={developer}
-              customers={customers}
+              allCustomers={customers}
+              developerId={project.developerCustomerId}
               onChange={(id) => set('developerCustomerId', id)}
             />
             <StakeholderRow
               roleLabel="End User"
+              roleKey="end_user"
               icon={Home}
               customer={endUser}
-              customers={customers}
+              allCustomers={customers}
+              developerId={project.developerCustomerId}
               onChange={(id) => set('endUserCustomerId', id)}
             />
           </div>
@@ -637,67 +689,99 @@ function DateInput({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
+// Searchable + role-filtered stakeholder picker. Filters the customer pool
+// to only those that play the relevant role (architects for the architect
+// slot, developers for developer, etc.). GC and End User get a pinned
+// "Same as developer" option at the top — common pattern for design-build
+// firms where developer == GC (e.g. Northwood Ravin).
 function StakeholderRow({
   roleLabel,
+  roleKey,
   icon: Icon,
   customer,
-  customers,
+  allCustomers,
+  developerId,
   onChange,
 }: {
   roleLabel: string;
+  roleKey: CustomerRole;
   icon: React.ElementType;
-  customer: import('../../types').Customer | undefined;
-  customers: import('../../types').Customer[];
+  customer: Customer | undefined;
+  allCustomers: Customer[];
+  developerId: string | undefined;
   onChange: (id: string | undefined) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const options = useMemo<ComboboxOption[]>(() => {
+    const eligible = allCustomers.filter((c) => customerEligibleFor(c, roleKey));
+    // Sort alphabetically by company
+    eligible.sort((a, b) => a.company.localeCompare(b.company));
+    const opts: ComboboxOption[] = eligible.map((c) => ({
+      value: c.id,
+      label: c.company,
+      sublabel: `${c.contacts[0]?.name ?? c.name} · ${c.type}`,
+    }));
+
+    // Pin "Same as developer" on GC + End User if a developer is assigned
+    // and it's not already the current value of this field.
+    if ((roleKey === 'gc' || roleKey === 'end_user') && developerId && developerId !== customer?.id) {
+      const dev = allCustomers.find((c) => c.id === developerId);
+      if (dev) {
+        opts.unshift({
+          value: developerId,
+          label: `Same as developer (${dev.company})`,
+          sublabel: 'Design-build / same-firm pattern',
+          pinned: true,
+        });
+      }
+    }
+    return opts;
+  }, [allCustomers, roleKey, developerId, customer?.id]);
+
+  const emptyText =
+    roleKey === 'architect' ? 'No architects or designers match.'
+    : roleKey === 'gc' ? 'No general contractors match.'
+    : roleKey === 'developer' ? 'No developers match.'
+    : 'No customers match.';
+
   return (
     <div className="bg-bg rounded-lg border border-divider">
       <div className="flex items-center gap-2 px-2.5 py-1.5">
         <Icon size={12} className="text-fg-faint" />
         <span className="text-xs text-fg-muted font-medium">{roleLabel}</span>
-        <div className="flex-1" />
-        {customer && !editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="text-xs text-fg-faint hover:text-accent-light"
-          >
-            change
-          </button>
-        )}
-        {customer && !editing && (
-          <button
-            onClick={() => onChange(undefined)}
-            className="text-xs text-fg-faint hover:text-danger"
-          >
-            clear
-          </button>
+      </div>
+      <div className="px-2 pb-2">
+        <SearchableCombobox
+          value={customer?.id ?? ''}
+          onChange={(v) => onChange(v || undefined)}
+          options={options}
+          placeholder="— Not assigned —"
+          emptyText={emptyText}
+          size="sm"
+        />
+        {customer && (
+          <p className="text-xs text-fg-faint truncate mt-1 px-1">
+            {customer.contacts[0]?.name ?? customer.name} · {customer.type}
+          </p>
         )}
       </div>
-      {!customer || editing ? (
-        <div className="px-2 pb-2">
-          <select
-            className="w-full text-xs border border-divider rounded px-2 py-1 bg-surface focus:outline-none focus:ring-1 focus:ring-accent"
-            value={customer?.id ?? ''}
-            onChange={(e) => {
-              onChange(e.target.value || undefined);
-              setEditing(false);
-            }}
-          >
-            <option value="">— Not assigned —</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.company} ({c.type})</option>
-            ))}
-          </select>
-        </div>
-      ) : (
-        <div className="px-2.5 pb-2">
-          <p className="text-sm text-fg font-medium truncate">{customer.company}</p>
-          <p className="text-xs text-fg-faint truncate">{customer.contacts[0]?.name ?? customer.name} · {customer.type}</p>
-        </div>
-      )}
     </div>
   );
+}
+
+// Whether a customer is a valid candidate for the given stakeholder role.
+// Combines explicit roles[] (preferred) with a heuristic fallback based on
+// CustomerType so the picker still surfaces sensible candidates even for
+// customers that pre-date the roles field.
+function customerEligibleFor(c: Customer, role: CustomerRole): boolean {
+  const roles = getCustomerRoles(c);
+  if (roles.includes(role)) return true;
+  // Type-based fallback for unmigrated customers
+  if (roles.length === 0) {
+    if (role === 'architect') return c.type === 'Architect' || c.type === 'Designer';
+    if (role === 'gc') return c.type === 'Contractor';
+    if (role === 'end_user') return true; // anyone could be an end user
+  }
+  return false;
 }
 
 function ActivityTimeline({

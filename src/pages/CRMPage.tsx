@@ -185,7 +185,51 @@ function KanbanBoard({
 }
 
 // ── List view ──────────────────────────────────────────────────
-type SortKey = 'updatedDate' | 'value' | 'anticipatedOrderDate' | 'lastTouchAt' | 'name';
+type SortKey =
+  | 'opportunityId'
+  | 'name'
+  | 'customer'
+  | 'projectType'
+  | 'opportunityStage'
+  | 'value'
+  | 'salesRep'
+  | 'nextStep'
+  | 'lastTouchAt'
+  | 'anticipatedOrderDate'
+  | 'updatedDate';
+
+// Pre-defined stage ordering — sorting by stage should reflect the pipeline
+// flow (lead qualification → orders placed), not alphabetical.
+const STAGE_SORT_ORDER: Record<OpportunityStage, number> = {
+  lead_qualification: 1,
+  design: 2,
+  bidding: 3,
+  awarded: 4,
+  orders_pending: 5,
+  orders_placed: 6,
+  closed: 7,
+};
+
+function sortValue(
+  p: ExtendedProject,
+  key: SortKey,
+  customers: ReturnType<typeof useAppStore.getState>['customers'],
+  reps: ReturnType<typeof useAppStore.getState>['reps'],
+): string | number {
+  switch (key) {
+    case 'opportunityId':       return p.opportunityId ?? p.id;
+    case 'name':                return p.name.toLowerCase();
+    case 'customer':            return (customers.find((c) => c.id === p.customerId)?.company ?? '').toLowerCase();
+    case 'projectType':         return (p.projectType ?? '').toLowerCase();
+    case 'opportunityStage':    return STAGE_SORT_ORDER[p.opportunityStage ?? 'lead_qualification'];
+    case 'value':               return p.value;
+    case 'salesRep':            return (reps.find((r) => r.id === p.salesRepId)?.initials ?? '').toLowerCase();
+    case 'nextStep':            return (p.nextStep ?? '').toLowerCase();
+    case 'lastTouchAt':         return p.lastTouchAt ?? '';
+    case 'anticipatedOrderDate': return p.anticipatedOrderDate ?? '';
+    case 'updatedDate':         return p.updatedDate ?? '';
+  }
+}
 
 // Threshold past which we virtualize. Below this, the regular table renders
 // — table semantics + sticky-thead is the better UX. Above this, we switch
@@ -210,11 +254,15 @@ function ListView({
   sortDir: 'asc' | 'desc';
   setSortDir: (d: 'asc' | 'desc') => void;
 }) {
+  // Sort uses a value extractor (sortValue) so columns like customer, stage,
+  // and rep — which require a lookup or a predefined order — sort correctly.
+  const customers = useAppStore((s) => s.customers);
+  const reps = useAppStore((s) => s.reps);
   const sorted = useMemo(() => {
     const arr = [...projects];
     arr.sort((a, b) => {
-      const av = a[sortBy] ?? '';
-      const bv = b[sortBy] ?? '';
+      const av = sortValue(a, sortBy, customers, reps);
+      const bv = sortValue(b, sortBy, customers, reps);
       if (typeof av === 'number' && typeof bv === 'number') {
         return sortDir === 'asc' ? av - bv : bv - av;
       }
@@ -223,7 +271,7 @@ function ListView({
         : String(bv).localeCompare(String(av));
     });
     return arr;
-  }, [projects, sortBy, sortDir]);
+  }, [projects, sortBy, sortDir, customers, reps]);
 
   // Architecture note: above the threshold we virtualize the row render to
   // keep the DOM small (the system needs to handle 10–15K projects per the
@@ -291,14 +339,14 @@ function TableListView({ projects, onSelect, sortBy, setSortBy, sortDir, setSort
       <table className="w-full text-sm">
         <thead className="bg-bg text-xs text-fg-muted uppercase tracking-wide">
           <tr>
-            <th className="px-3 py-2 text-left font-mono">Opp ID</th>
+            {header('Opp ID', 'opportunityId')}
             {header('Project', 'name')}
-            <th className="px-3 py-2 text-left">Customer</th>
-            <th className="px-3 py-2 text-left">Type</th>
-            <th className="px-3 py-2 text-left">Stage</th>
+            {header('Customer', 'customer')}
+            {header('Type', 'projectType')}
+            {header('Stage', 'opportunityStage')}
             {header('Value', 'value', 'right')}
-            <th className="px-3 py-2 text-left">Rep</th>
-            <th className="px-3 py-2 text-left">Next Step</th>
+            {header('Rep', 'salesRep')}
+            {header('Next Step', 'nextStep')}
             {header('Last Touch', 'lastTouchAt')}
             {header('Order By', 'anticipatedOrderDate')}
           </tr>
@@ -386,14 +434,14 @@ function VirtualizedListView({ projects, onSelect, sortBy, setSortBy, sortDir, s
     <div className="rounded-lg border border-divider bg-surface overflow-hidden">
       {/* Header row */}
       <div className="grid bg-bg border-b border-divider" style={{ gridTemplateColumns: gridCols }}>
-        <HeaderCell label="Opp ID" />
+        <HeaderCell label="Opp ID" sortKey="opportunityId" />
         <HeaderCell label="Project" sortKey="name" />
-        <HeaderCell label="Customer" />
-        <HeaderCell label="Type" />
-        <HeaderCell label="Stage" />
+        <HeaderCell label="Customer" sortKey="customer" />
+        <HeaderCell label="Type" sortKey="projectType" />
+        <HeaderCell label="Stage" sortKey="opportunityStage" />
         <HeaderCell label="Value" sortKey="value" align="right" />
-        <HeaderCell label="Rep" />
-        <HeaderCell label="Next Step" />
+        <HeaderCell label="Rep" sortKey="salesRep" />
+        <HeaderCell label="Next Step" sortKey="nextStep" />
         <HeaderCell label="Last Touch" sortKey="lastTouchAt" />
         <HeaderCell label="Order By" sortKey="anticipatedOrderDate" />
       </div>

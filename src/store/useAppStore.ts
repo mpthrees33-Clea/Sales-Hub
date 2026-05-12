@@ -22,6 +22,7 @@ import {
   seedReps, seedSalesLocations,
   seedEmailThreads, seedEmailDrafts,
   seedActivities, seedGcSubEdges, seedDormantDigests, seedQuotes,
+  CUSTOMER_ROLES_BACKFILL,
 } from '../data/seedData';
 
 // Append-only ID lists for migration safety. When the seed expands with new
@@ -220,9 +221,33 @@ export const useAppStore = create<AppState>()(
       addProject: (p) => set((s) => ({ projects: [...s.projects, backfillProjectExtensions(p)] })),
       updateProject: (id, patch) =>
         set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === id ? { ...p, ...patch, updatedDate: new Date().toISOString() } : p,
-          ),
+          projects: s.projects.map((p) => {
+            if (p.id !== id) return p;
+            const now = new Date().toISOString();
+            // Patches that ONLY touch cached AI summary fields are background
+            // refreshes, not meaningful "touches" — so they don't reset
+            // dormancy. Any other field (stage, status, value, notes,
+            // stakeholders, etc.) bumps lastTouchAt so a dormant project
+            // immediately loses the dormant indicator once the rep works it.
+            const cacheOnlyKeys = new Set([
+              'aiSummary', 'aiSuggestedNextStep', 'aiDormancyAlert', 'aiSummaryUpdatedAt',
+              'lastTouchAt', // explicit lastTouchAt updates from services pass through unchanged
+            ]);
+            const isCacheOnly = Object.keys(patch).every((k) => cacheOnlyKeys.has(k));
+            // On a real edit, also clear the cached AI dormancy alert — the
+            // project isn't dormant anymore, so the banner shouldn't claim
+            // it is until a fresh AI summary regenerates.
+            const clearedDormancyAlert = !isCacheOnly && p.aiDormancyAlert
+              ? { aiDormancyAlert: undefined }
+              : {};
+            return {
+              ...p,
+              ...patch,
+              updatedDate: now,
+              lastTouchAt: isCacheOnly ? p.lastTouchAt : now,
+              ...clearedDormancyAlert,
+            };
+          }),
         })),
       deleteProject: (id) =>
         set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
@@ -322,7 +347,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 6,
+      version: 7,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -337,6 +362,10 @@ export const useAppStore = create<AppState>()(
       //   v5 → v6: merge in dealer/sub customers (c18–c20) + the historical
       //            GcSubEdge dataset that drives the new CRM Insights view.
       //            Append-only.
+      //   v6 → v7: backfill Customer.roles from CUSTOMER_ROLES_BACKFILL so
+      //            stakeholder pickers filter correctly. Append the round
+      //            of new projects (pr26+) that fill out the "2+ projects
+      //            per customer" coverage. Append-only on both.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -443,6 +472,28 @@ export const useAppStore = create<AppState>()(
           }
         } else {
           persisted.gcSubEdges = [...seedGcSubEdges];
+        }
+
+        // v6 → v7: backfill Customer.roles from the seed map so stakeholder
+        // pickers filter candidates correctly even on persisted state that
+        // pre-dates the roles field. Skip customers that already have a
+        // non-empty roles array (rep may have edited).
+        if (Array.isArray(persisted.customers)) {
+          persisted.customers = persisted.customers.map((c: any) => {
+            if (!c) return c;
+            if (Array.isArray(c.roles) && c.roles.length > 0) return c;
+            const seedRoles = CUSTOMER_ROLES_BACKFILL[c.id];
+            return seedRoles ? { ...c, roles: seedRoles } : c;
+          });
+        }
+
+        // v6 → v7: append the new projects added to fill out "2+ per customer"
+        // (pr26 onward). Append-only on existing ids.
+        if (Array.isArray(persisted.projects)) {
+          const existing = new Set(persisted.projects.map((p: any) => p?.id));
+          for (const project of seedProjects) {
+            if (!existing.has(project.id)) persisted.projects.push(project);
+          }
         }
 
         return persisted;

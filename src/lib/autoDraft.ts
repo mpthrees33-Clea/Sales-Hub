@@ -1,15 +1,16 @@
 import { useAppStore } from '../store/useAppStore';
 import type {
   EmailDraft, EmailMessage, MissingFieldAsk, EmailIntent, Project, ProjectExtensions,
-  Quote,
+  Quote, Customer,
 } from '../types';
 import { emails, drafts, threads } from '../services/email';
 import { reps } from '../services/reps';
 import { projects, suggestCustomerFromEmail } from '../services/projects';
 import { activities } from '../services/activities';
 import { quotes } from '../services/quotes';
-import { buildDraftScaffold } from './emailAI';
+import { buildDraftScaffold, type StakeholderHints } from './emailAI';
 import { buildQuote } from './pricing';
+import { getCustomerRoles } from '../data/seedData';
 
 // Auto-draft orchestrator. Bridges the LLM pipeline in emailAI.ts with the
 // service layer. One entry point — generateDraftForEmail — that:
@@ -159,7 +160,10 @@ async function generate(email: EmailMessage, opts: GenerateOptions): Promise<Ema
 
   drafts.add(draft);
 
-  // Log activity if we linked to a project.
+  // Log activity + apply email-detected stakeholder hints if we linked to a
+  // project. The hints come either from the LLM extraction or a regex
+  // fallback. Anything we can match to a CRM customer gets populated on the
+  // project (only when the slot is empty), and a note records the source.
   if (match) {
     activities.log({
       projectId: match.id,
@@ -169,9 +173,104 @@ async function generate(email: EmailMessage, opts: GenerateOptions): Promise<Ema
       relatedEmailId: email.id,
       date: email.date,
     });
+
+    if (scaffold.stakeholderHints) {
+      applyStakeholderHints({
+        projectId: match.id,
+        hints: scaffold.stakeholderHints,
+        sourceEmail: email,
+        authorName: rep.name,
+      });
+    }
   }
 
   return draft;
+}
+
+// Match email-detected stakeholder company names against the CRM customer
+// list, populate any empty stakeholder slots on the project, and log a note
+// documenting where the info came from so the rep can verify.
+function applyStakeholderHints(args: {
+  projectId: string;
+  hints: StakeholderHints;
+  sourceEmail: EmailMessage;
+  authorName: string;
+}): void {
+  const state = useAppStore.getState();
+  const project = state.projects.find((p) => p.id === args.projectId);
+  if (!project) return;
+
+  const customers = state.customers;
+  const matches: { role: 'architect' | 'gc' | 'developer' | 'end_user'; customer: Customer; field: keyof ProjectExtensions; mention: string }[] = [];
+
+  function lookupByName(name: string, role: 'architect' | 'gc' | 'developer' | 'end_user'): Customer | undefined {
+    const q = name.toLowerCase().trim();
+    if (!q) return undefined;
+    // Prefer exact then substring matches. Only consider customers whose
+    // roles include the target role (so a generic name doesn't pull a wrong
+    // customer record).
+    const candidates = customers.filter((c) => {
+      const roles = getCustomerRoles(c);
+      if (roles.includes(role)) return true;
+      // Type fallback for unmigrated customers
+      if (roles.length === 0) {
+        if (role === 'architect') return c.type === 'Architect' || c.type === 'Designer';
+        if (role === 'gc') return c.type === 'Contractor';
+      }
+      return false;
+    });
+    const exact = candidates.find((c) => c.company.toLowerCase() === q);
+    if (exact) return exact;
+    return candidates.find((c) => c.company.toLowerCase().includes(q) || q.includes(c.company.toLowerCase()));
+  }
+
+  if (args.hints.architect && !project.architecturalFirmId) {
+    const c = lookupByName(args.hints.architect, 'architect');
+    if (c) matches.push({ role: 'architect', customer: c, field: 'architecturalFirmId', mention: args.hints.architect });
+  }
+  if (args.hints.gc && !project.gcCustomerId) {
+    const c = lookupByName(args.hints.gc, 'gc');
+    if (c) matches.push({ role: 'gc', customer: c, field: 'gcCustomerId', mention: args.hints.gc });
+  }
+  if (args.hints.developer && !project.developerCustomerId) {
+    const c = lookupByName(args.hints.developer, 'developer');
+    if (c) matches.push({ role: 'developer', customer: c, field: 'developerCustomerId', mention: args.hints.developer });
+  }
+  if (args.hints.endUser && !project.endUserCustomerId) {
+    const c = lookupByName(args.hints.endUser, 'end_user');
+    if (c) matches.push({ role: 'end_user', customer: c, field: 'endUserCustomerId', mention: args.hints.endUser });
+  }
+
+  if (matches.length === 0) return;
+
+  // Apply each match + log a single note that summarizes all of them.
+  const patch: Partial<ProjectExtensions> = {};
+  for (const m of matches) {
+    (patch as any)[m.field] = m.customer.id;
+  }
+  projects.update(args.projectId, patch);
+
+  const summary = matches.map((m) => `${roleLabel(m.role)}: ${m.customer.company}`).join('; ');
+  const noteText = `Email from ${args.sourceEmail.fromName} indicated — ${summary}. Auto-populated; verify before relying on it.`;
+  const note = {
+    id: `n-auto-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    date: new Date().toISOString().slice(0, 10),
+    text: noteText,
+    author: args.authorName,
+  };
+  const fresh = useAppStore.getState().projects.find((p) => p.id === args.projectId);
+  if (fresh) {
+    useAppStore.getState().updateProject(args.projectId, { notes: [...fresh.notes, note] });
+  }
+}
+
+function roleLabel(role: 'architect' | 'gc' | 'developer' | 'end_user'): string {
+  switch (role) {
+    case 'architect': return 'architect';
+    case 'gc': return 'GC';
+    case 'developer': return 'developer';
+    case 'end_user': return 'end user';
+  }
 }
 
 // Project-level missing-field detection. For pricing requests, the project

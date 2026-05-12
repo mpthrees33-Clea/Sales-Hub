@@ -44,6 +44,17 @@ export interface DraftGenerationResult {
   // Material-level missing fields. Project-level asks are computed in the
   // orchestrator (it knows which project fields are filled).
   missingFieldAsks?: MissingFieldAsk[];
+  // Stakeholder companies mentioned in the email body. Orchestrator matches
+  // each against the CRM customer list and auto-populates the linked
+  // project's stakeholder slots (when empty).
+  stakeholderHints?: StakeholderHints;
+}
+
+export interface StakeholderHints {
+  architect?: string;
+  gc?: string;
+  developer?: string;
+  endUser?: string;
 }
 
 // ── Deterministic intent classifier (fallback + pre-LLM signal) ──
@@ -391,7 +402,16 @@ OUTPUT — VALID JSON ONLY, matching this exact shape:
  "attachBrochureIds": ["b1"],
  "lineItemRequests": [{"productName": "BlueSky SPC", "size": "9x60", "color": null, "finish": "embossed", "quantity": 8200, "unit": "sq ft"}],
  "missingFieldAsks": [{"field": "color", "contextLabel": "color for BlueSky SPC", "hint": "..."}],
+ "stakeholderHints": {"architect": "Greer Architecture", "gc": "Stafford Commercial Build", "developer": "Hines Property Group", "endUser": null},
  "reasoning": "one line"}
+
+STAKEHOLDER HINTS — important for CRM hydration
+If the email explicitly names a stakeholder (the architect, specifying firm, GC, developer, owner, or end user), put the company name (as written, capitalized) under stakeholderHints. Use null for any role the email doesn't mention. Examples that trigger hints:
+- "Developer is Hines Property Group." → developer
+- "The architect on this project is Greer Architecture." → architect
+- "Our GC is Stafford" / "Stafford is the GC on this one" → gc
+- "Owner is Sterling Biopharm" / "End user will be Calhoun Public Works" → endUser
+Do NOT extract a sender's company as a stakeholder unless they explicitly state their own role on the project.
 
 GENERAL RULES
 - Subject: "Re: <original subject>" unless it already starts with Re:, then keep as-is.
@@ -433,7 +453,22 @@ ${buildBrochureCatalogText(trimContext(ctx.brochures, 25))}
 Draft the reply. Return JSON only.`;
 
   const raw = await callGemini(systemPrompt, userPrompt, signal);
-  return parseLLMJSON(raw, ctx);
+  const result = parseLLMJSON(raw, ctx);
+
+  // Safety net: layer regex extraction on top of the LLM output. The LLM
+  // takes precedence per field, but regex catches any obvious "the architect
+  // is X" mention the model overlooked.
+  const regexHints = extractStakeholderHintsLocally(ctx.email);
+  const merged: StakeholderHints = {
+    architect: result.stakeholderHints?.architect ?? regexHints.architect,
+    gc: result.stakeholderHints?.gc ?? regexHints.gc,
+    developer: result.stakeholderHints?.developer ?? regexHints.developer,
+    endUser: result.stakeholderHints?.endUser ?? regexHints.endUser,
+  };
+  return {
+    ...result,
+    stakeholderHints: hasAnyStakeholderHint(merged) ? merged : undefined,
+  };
 }
 
 function parseLLMJSON(raw: string, ctx: DraftGenerationContext): DraftGenerationResult {
@@ -463,6 +498,7 @@ function parseLLMJSON(raw: string, ctx: DraftGenerationContext): DraftGeneration
 
   const lineItemRequests = parseLineItemRequests(parsed.lineItemRequests);
   const missingFieldAsks = parseMissingFieldAsks(parsed.missingFieldAsks);
+  const stakeholderHints = parseStakeholderHints(parsed.stakeholderHints);
 
   return {
     intent,
@@ -472,7 +508,23 @@ function parseLLMJSON(raw: string, ctx: DraftGenerationContext): DraftGeneration
     reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : undefined,
     lineItemRequests: lineItemRequests.length ? lineItemRequests : undefined,
     missingFieldAsks: missingFieldAsks.length ? missingFieldAsks : undefined,
+    stakeholderHints: hasAnyStakeholderHint(stakeholderHints) ? stakeholderHints : undefined,
   };
+}
+
+function parseStakeholderHints(raw: unknown): StakeholderHints {
+  if (!raw || typeof raw !== 'object') return {};
+  const obj = raw as Record<string, unknown>;
+  return {
+    architect: stringOrUndef(obj.architect),
+    gc: stringOrUndef(obj.gc),
+    developer: stringOrUndef(obj.developer),
+    endUser: stringOrUndef(obj.endUser ?? obj.end_user),
+  };
+}
+
+function hasAnyStakeholderHint(s: StakeholderHints): boolean {
+  return Boolean(s.architect || s.gc || s.developer || s.endUser);
 }
 
 function parseLineItemRequests(raw: unknown): LineItemRequest[] {
@@ -599,6 +651,30 @@ export function extractLineItemsLocally(
   return items;
 }
 
+// Extract stakeholder mentions from the email body via regex. Used both as
+// the fallback path when Gemini isn't configured and as a safety net layered
+// on top of the LLM output (so we catch obvious mentions the model missed).
+// Pattern matches a "Role is Company" sentence frame and grabs the company
+// name up to the next punctuation.
+export function extractStakeholderHintsLocally(email: EmailMessage): StakeholderHints {
+  const text = `${email.subject}\n${email.body}`;
+  const grab = (re: RegExp): string | undefined => {
+    const m = text.match(re);
+    if (!m || !m[1]) return undefined;
+    return m[1].trim().replace(/[.,;:]+$/, '');
+  };
+  return {
+    architect: grab(/(?:the\s+|specifying\s+)?architect(?:\s+(?:of\s+record|is|will\s+be))?\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i)
+            ?? grab(/architecture\s+(?:firm|of\s+record)\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i)
+            ?? grab(/specifying\s+firm\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i),
+    gc: grab(/\b(?:our|the)?\s*GC\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i)
+      ?? grab(/general\s+contractor\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i),
+    developer: grab(/developer\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i)
+            ?? grab(/(?:the|our)?\s*developer\s+(?:on\s+this\s+(?:one|project)?\s+)?(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i),
+    endUser: grab(/(?:end\s+user|owner)\s+(?:is|will\s+be)\s+([A-Z][^.,;\n]{2,60})/i),
+  };
+}
+
 // Derive material-level missing-field asks from extracted line items.
 // Project-level asks (architect/GC/developer/etc.) are added by the
 // orchestrator based on the matched Project record.
@@ -661,6 +737,9 @@ export async function buildDraftScaffold(
     missingFieldAsks = deriveMaterialMissingFields(lineItemRequests);
   }
 
+  const stakeholderHintsLocal = extractStakeholderHintsLocally(ctx.email);
+  const hasStakeholderHints = hasAnyStakeholderHint(stakeholderHintsLocal);
+
   const body = composeFallbackBody({
     email: ctx.email,
     rep: ctx.rep,
@@ -679,5 +758,6 @@ export async function buildDraftScaffold(
     reasoning: 'deterministic fallback',
     lineItemRequests,
     missingFieldAsks,
+    stakeholderHints: hasStakeholderHints ? stakeholderHintsLocal : undefined,
   };
 }

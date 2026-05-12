@@ -12,6 +12,12 @@ export type ProductCategory =
   | 'Other';
 
 export type CustomerType = 'Contractor' | 'Architect' | 'Designer' | 'Dealer' | 'Homeowner';
+
+// Functional roles a customer can play on a project — independent of their
+// CustomerType. Many real customers wear multiple hats (e.g. Northwood Ravin
+// is both a developer AND a GC). roles[] lets the stakeholder pickers filter
+// candidates correctly even when CustomerType is a single-value field.
+export type CustomerRole = 'developer' | 'gc' | 'architect' | 'end_user';
 export type ProjectStatus = 'Lead' | 'Active' | 'Bidding' | 'Won' | 'Lost';
 export type SampleOrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered';
 
@@ -150,6 +156,10 @@ export interface Customer {
   shipToAddresses: ShipToAddress[];
   notes?: string;
   createdDate: string;
+  // Functional roles the customer plays. Used by the stakeholder pickers
+  // on opportunities — a single customer can be flagged as both a
+  // developer and a GC for design-build firms like Northwood Ravin.
+  roles?: CustomerRole[];
 }
 
 export interface ProjectNote {
