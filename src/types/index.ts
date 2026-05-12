@@ -373,7 +373,9 @@ export interface ProjectExtensions {
   bidders?: Bidder[];
   cmdProjectId?: string;         // ConstructConnect / CMD link (mocked for now)
   lastTouchAt?: string;          // computed from activities; cached for dormancy queries
-  aiSummary?: string;            // refreshed by the AI summary endpoint
+  aiSummary?: string;                    // refreshed by the AI summary endpoint
+  aiSuggestedNextStep?: string;          // AI-suggested next action, one-click into nextStep
+  aiDormancyAlert?: string;              // optional re-engagement nudge from the summary
   aiSummaryUpdatedAt?: string;
 }
 

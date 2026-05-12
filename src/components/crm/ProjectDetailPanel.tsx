@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   X, MessageSquare, Briefcase, Building2, HardHat, Home,
   Calendar, MapPin, User as UserIcon, Receipt, Mail, TrendingUp, Clock,
-  AlertCircle, ChevronDown,
+  AlertCircle, ChevronDown, Sparkles, RefreshCw, Loader2, Wand2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../../store/useAppStore';
@@ -10,6 +10,7 @@ import type {
   Project, ProjectExtensions, ProjectStatus,
   OpportunityStatus, OpportunityStage, ProjectType, Activity,
 } from '../../types';
+import { buildOpportunitySummary } from '../../lib/opportunityAI';
 
 type ExtendedProject = Project & ProjectExtensions;
 
@@ -117,12 +118,47 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
   const stageStalled = stageDays > 30 && project.opportunityStatus === 'active';
 
   const [noteText, setNoteText] = useState('');
+  const [generatingSummary, setGeneratingSummary] = useState(false);
 
   function set<K extends keyof (Project & ProjectExtensions)>(
     key: K,
     value: (Project & ProjectExtensions)[K],
   ) {
     updateProject(project.id, { [key]: value } as Partial<Project & ProjectExtensions>);
+  }
+
+  async function generateAISummary() {
+    if (generatingSummary) return;
+    const me = reps.find((r) => r.isCurrentUser) ?? reps[0];
+    if (!me) return;
+    setGeneratingSummary(true);
+    try {
+      const result = await buildOpportunitySummary({
+        project,
+        rep: me,
+        customer,
+        architect,
+        gc,
+        developer,
+        activities: projectActivities,
+        quotes: projectQuotes,
+      });
+      updateProject(project.id, {
+        aiSummary: result.summary,
+        aiSuggestedNextStep: result.suggestedNextStep,
+        aiDormancyAlert: result.dormancyAlert,
+        aiSummaryUpdatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('Opportunity AI summary failed', err);
+    } finally {
+      setGeneratingSummary(false);
+    }
+  }
+
+  function applySuggestedNextStep() {
+    if (!project.aiSuggestedNextStep) return;
+    updateProject(project.id, { nextStep: project.aiSuggestedNextStep });
   }
 
   function addNote() {
@@ -178,6 +214,14 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
       </div>
 
       <div className="flex-1 p-4 space-y-5">
+        {/* ── AI summary ── (top of panel — the "where this was last left" recap) */}
+        <AISummarySection
+          project={project}
+          generating={generatingSummary}
+          onGenerate={generateAISummary}
+          onApplyNextStep={applySuggestedNextStep}
+        />
+
         {/* ── Stage selector ── */}
         <div>
           <Label icon={TrendingUp}>Stage</Label>
@@ -371,6 +415,101 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
             Kanban still read .status. */}
         <ProjectStatusSync project={project} updateProject={updateProject} />
       </div>
+    </div>
+  );
+}
+
+// ── AI Summary section ────────────────────────────────────────
+// Renders the "where this was last left + what to do next" recap. Empty
+// state shows a Generate button; populated state shows the cached recap
+// plus a "Use this as my next step" one-click action.
+function AISummarySection({
+  project,
+  generating,
+  onGenerate,
+  onApplyNextStep,
+}: {
+  project: ExtendedProject;
+  generating: boolean;
+  onGenerate: () => void;
+  onApplyNextStep: () => void;
+}) {
+  const hasSummary = Boolean(project.aiSummary);
+  const lastUpdated = project.aiSummaryUpdatedAt;
+
+  if (!hasSummary && !generating) {
+    return (
+      <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent-light shrink-0">
+          <Sparkles size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-fg">AI opportunity summary</p>
+          <p className="text-xs text-fg-muted mt-0.5">
+            One-click recap of where this was last left, with a suggested next step.
+          </p>
+          <button
+            onClick={onGenerate}
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs font-medium rounded-lg hover:bg-accent-dim active:scale-95 transition-all"
+          >
+            <Sparkles size={12} /> Generate summary
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (generating) {
+    return (
+      <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 flex items-center gap-3">
+        <Loader2 size={16} className="animate-spin text-accent-light" />
+        <p className="text-sm text-fg-muted">Building summary…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Sparkles size={14} className="text-accent-light" />
+          <span className="text-xs font-semibold text-fg">AI summary</span>
+          {lastUpdated && (
+            <span className="text-xs text-fg-faint">· refreshed {relativeDate(lastUpdated)}</span>
+          )}
+        </div>
+        <button
+          onClick={onGenerate}
+          className="p-1.5 rounded-lg text-fg-muted hover:bg-surface-1 hover:text-fg-muted"
+          title="Refresh summary"
+        >
+          <RefreshCw size={12} />
+        </button>
+      </div>
+
+      {project.aiDormancyAlert && (
+        <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
+          <AlertCircle size={13} className="text-warning shrink-0 mt-0.5" />
+          <p className="text-xs text-warning leading-relaxed">{project.aiDormancyAlert}</p>
+        </div>
+      )}
+
+      <p className="text-sm text-fg leading-relaxed">{project.aiSummary}</p>
+
+      {project.aiSuggestedNextStep && (
+        <div className="border-t border-accent/20 pt-3">
+          <p className="text-xs font-medium text-fg-muted mb-1.5">Suggested next step</p>
+          <p className="text-sm text-fg italic">"{project.aiSuggestedNextStep}"</p>
+          {project.aiSuggestedNextStep !== project.nextStep && (
+            <button
+              onClick={onApplyNextStep}
+              className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-surface-1 text-fg border border-divider rounded-lg hover:bg-accent/10 hover:border-accent/40 hover:text-accent-light"
+            >
+              <Wand2 size={11} /> Use as my next step
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
