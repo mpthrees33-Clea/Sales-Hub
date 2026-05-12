@@ -5,6 +5,7 @@ import type {
   Rep, SalesLocation, EmailThread, EmailDraft,
   Quote, Activity, GcSubEdge, DormantDigest,
   ProjectExtensions, CustomerRole,
+  Presentation,
 } from '../types';
 
 // Customer functional roles. Source of truth — stakeholder pickers read
@@ -1425,6 +1426,63 @@ export const seedReps: Rep[] = [
 export const seedEmailThreads: EmailThread[] = [];
 export const seedEmailDrafts: EmailDraft[] = [];
 export const seedActivities: Activity[] = [];
+
+// ── Starter presentation templates ────────────────────────────
+// Three rep-ready decks the rep can clone and customize for a meeting.
+// Each one is a sequence of brochure + product slides + a title slide on
+// the front. The Present mode renders each slide in landscape.
+export const seedPresentations: Presentation[] = [
+  {
+    id: 'pres-template-commercial-lvp',
+    name: 'Commercial LVP — Architect Pitch',
+    description: 'Front-of-line LVP story for commercial specs: SPC + LVT options, performance specs, install economics.',
+    targetAudience: 'Architect',
+    isTemplate: true,
+    tags: ['lvp', 'spc', 'commercial', 'template'],
+    slides: [
+      { id: 'slide-1', type: 'title', title: 'Trinity Commercial LVP', subtitle: 'Architect deep-dive — 2026 line', notes: 'Open with current spec wins. Lead with embossed finishes.' },
+      { id: 'slide-2', type: 'brochure', brochureId: 'b1', spotlightProductIds: ['p1', 'p2'], notes: 'Walk through StoneCreek + BlueSky. 20mil wear layer beats most of what HKS specs.' },
+      { id: 'slide-3', type: 'product', productId: 'p2', notes: 'BlueSky is the headline product — get them sold here.' },
+      { id: 'slide-4', type: 'brochure', brochureId: 'b2', spotlightProductIds: ['p1', 'p8'], notes: 'Cross-reference COREtec — most customers know the brand, our equivalent is better priced.' },
+      { id: 'slide-5', type: 'product', productId: 'p8', notes: 'AquaShield for glue-down commercial install.' },
+      { id: 'slide-6', type: 'brochure', brochureId: 'b10', notes: 'Close on LEED — sustainability is the deciding factor on most public-sector specs.' },
+    ],
+    createdDate: '2026-03-01', modifiedDate: '2026-04-15',
+  },
+  {
+    id: 'pres-template-hardwood-residential',
+    name: 'Premium Hardwood — Designer Pitch',
+    description: 'Boutique-residential hardwood story for designers and high-end builders.',
+    targetAudience: 'Designer',
+    isTemplate: true,
+    tags: ['hardwood', 'engineered', 'residential', 'template'],
+    slides: [
+      { id: 'slide-1', type: 'title', title: 'Trinity Hardwood Collection', subtitle: 'For your next premium-residential project', notes: 'Frame as design-collab partner, not just supplier.' },
+      { id: 'slide-2', type: 'brochure', brochureId: 'b3', spotlightProductIds: ['p3', 'p7'], notes: 'Lookbook is the conversation starter — let them browse.' },
+      { id: 'slide-3', type: 'product', productId: 'p3', notes: 'Peachtree Oak — Trinity\'s signature engineered. UV oil finish, 5-inch wide-plank.' },
+      { id: 'slide-4', type: 'product', productId: 'p7', notes: 'MapleCrest for budget-conscious clients who still want solid wood.' },
+      { id: 'slide-5', type: 'brochure', brochureId: 'b8', notes: 'Mohawk TecWood — name-brand alternative if the designer specs by manufacturer.' },
+    ],
+    createdDate: '2026-03-08', modifiedDate: '2026-04-12',
+  },
+  {
+    id: 'pres-template-healthcare',
+    name: 'Healthcare Flooring — Contractor Spec',
+    description: 'LVT + antimicrobial tile package for medical and lab projects. GSA/HCAI compliance covered.',
+    targetAudience: 'Contractor',
+    isTemplate: true,
+    tags: ['healthcare', 'lvt', 'tile', 'compliance', 'template'],
+    slides: [
+      { id: 'slide-1', type: 'title', title: 'Healthcare Flooring Package', subtitle: 'Antimicrobial LVT + clinical-grade tile', notes: 'Lead with compliance — that\'s what gets the spec locked.' },
+      { id: 'slide-2', type: 'brochure', brochureId: 'b2', spotlightProductIds: ['p8'], notes: 'AquaShield LVT — glue-down, 6mil wear, easy clean.' },
+      { id: 'slide-3', type: 'product', productId: 'p8', notes: 'Antimicrobial spec sheet is in the back if they ask.' },
+      { id: 'slide-4', type: 'brochure', brochureId: 'b4', spotlightProductIds: ['p4'], notes: 'Daltile for wet areas and corridors. PEI 4 rating.' },
+      { id: 'slide-5', type: 'product', productId: 'p4', notes: 'GraniteShield 24x24 — large format reduces grout joints in wet zones.' },
+      { id: 'slide-6', type: 'brochure', brochureId: 'b6', notes: 'Commercial carpet for offices + waiting rooms — solution-dyed nylon, 28oz loop.' },
+    ],
+    createdDate: '2026-02-22', modifiedDate: '2026-04-20',
+  },
+];
 // Seeded so the GC↔sub learning view has visible data on first load.
 // Real edges accumulate organically as quotes ship (services/quotes.ts logs
 // them when a project's gcCustomerId + bidder.awarded line up). These rows

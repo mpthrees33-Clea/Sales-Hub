@@ -6,7 +6,7 @@ import type {
   PriceEntry, DistributorPriceList, AppSettings,
   Rep, SalesLocation, EmailThread, EmailDraft,
   Quote, Activity, GcSubEdge, DormantDigest,
-  ProjectExtensions,
+  ProjectExtensions, Presentation,
 } from '../types';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -22,6 +22,7 @@ import {
   seedReps, seedSalesLocations,
   seedEmailThreads, seedEmailDrafts,
   seedActivities, seedGcSubEdges, seedDormantDigests, seedQuotes,
+  seedPresentations,
   CUSTOMER_ROLES_BACKFILL,
 } from '../data/seedData';
 
@@ -61,6 +62,7 @@ interface AppState {
   gcSubEdges: GcSubEdge[];
   dormantDigests: DormantDigest[];
   quotes: Quote[];
+  presentations: Presentation[];
 
   // Settings
   settings: AppSettings;
@@ -138,6 +140,11 @@ interface AppState {
   addQuote: (q: Quote) => void;
   updateQuote: (id: string, patch: Partial<Quote>) => void;
 
+  // Actions — Presentations
+  addPresentation: (p: Presentation) => void;
+  updatePresentation: (id: string, patch: Partial<Presentation>) => void;
+  deletePresentation: (id: string) => void;
+
   // Actions — UI
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -197,6 +204,7 @@ export const useAppStore = create<AppState>()(
       gcSubEdges: seedGcSubEdges,
       dormantDigests: seedDormantDigests,
       quotes: seedQuotes,
+      presentations: seedPresentations,
       settings: DEFAULT_SETTINGS,
       sidebarOpen: true,
       selectedProjectId: null,
@@ -322,6 +330,17 @@ export const useAppStore = create<AppState>()(
       updateQuote: (id, patch) =>
         set((s) => ({ quotes: s.quotes.map((q) => q.id === id ? { ...q, ...patch } : q) })),
 
+      // Presentations
+      addPresentation: (p) => set((s) => ({ presentations: [...s.presentations, p] })),
+      updatePresentation: (id, patch) =>
+        set((s) => ({
+          presentations: s.presentations.map((p) =>
+            p.id === id ? { ...p, ...patch, modifiedDate: new Date().toISOString().slice(0, 10) } : p,
+          ),
+        })),
+      deletePresentation: (id) =>
+        set((s) => ({ presentations: s.presentations.filter((p) => p.id !== id) })),
+
       // UI
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -347,7 +366,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 7,
+      version: 8,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -366,6 +385,10 @@ export const useAppStore = create<AppState>()(
       //            stakeholder pickers filter correctly. Append the round
       //            of new projects (pr26+) that fill out the "2+ projects
       //            per customer" coverage. Append-only on both.
+      //   v7 → v8: add Presentation store + seed three starter template
+      //            decks (LVP architect pitch / hardwood designer pitch /
+      //            healthcare contractor spec). Append-only on existing
+      //            presentations array.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -496,6 +519,17 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // v7 → v8: seed presentations array if missing, otherwise merge in
+        // the starter templates the user hasn't already cloned/deleted.
+        if (!Array.isArray(persisted.presentations)) {
+          persisted.presentations = [...seedPresentations];
+        } else {
+          const existing = new Set(persisted.presentations.map((p: any) => p?.id));
+          for (const pres of seedPresentations) {
+            if (!existing.has(pres.id)) persisted.presentations.push(pres);
+          }
+        }
+
         return persisted;
       },
       // Don't persist file objects (objectURLs) — only metadata persists
@@ -517,6 +551,7 @@ export const useAppStore = create<AppState>()(
         gcSubEdges: state.gcSubEdges,
         dormantDigests: state.dormantDigests,
         quotes: state.quotes,
+        presentations: state.presentations,
         settings: state.settings,
         currentRepId: state.currentRepId,
       }),

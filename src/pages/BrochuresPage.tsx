@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { FileText, BookOpen, Plus, Search, Copy, Edit2, Trash2 } from 'lucide-react';
-import type { Brochure, Catalog } from '../types';
+import { FileText, BookOpen, Plus, Search, Copy, Edit2, Trash2, Presentation as PresentationIcon, Play } from 'lucide-react';
+import type { Brochure, Catalog, Presentation } from '../types';
 import UploadModal, { getFile } from '../components/brochures/UploadModal';
 import CatalogModal from '../components/brochures/CatalogModal';
+import PresentationEditor from '../components/brochures/PresentationEditor';
+import PresentMode from '../components/brochures/PresentMode';
 
 const CAT_COLORS: Record<string, string> = {
   LVP:                    'bg-accent/15 text-accent-light',
@@ -93,13 +95,17 @@ function CatalogCard({ catalog, brochures, onClone, onEdit, onDelete }: {
 }
 
 export default function BrochuresPage() {
-  const { brochures, catalogs, deleteBrochure, deleteCatalog, addCatalog } = useAppStore();
-  const [tab, setTab] = useState<'brochures' | 'catalogs'>('brochures');
+  const { brochures, catalogs, deleteBrochure, deleteCatalog, addCatalog,
+          presentations, deletePresentation, addPresentation } = useAppStore();
+  const [tab, setTab] = useState<'brochures' | 'catalogs' | 'presentations'>('brochures');
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('All');
   const [showUpload, setShowUpload] = useState(false);
   const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [editingCatalog, setEditingCatalog] = useState<Catalog | undefined>();
+  const [showPresentationEditor, setShowPresentationEditor] = useState(false);
+  const [editingPresentation, setEditingPresentation] = useState<Presentation | undefined>();
+  const [presentingId, setPresentingId] = useState<string | null>(null);
 
   const categories = ['All', ...Array.from(new Set(brochures.map((b) => b.category)))];
 
@@ -123,13 +129,33 @@ export default function BrochuresPage() {
     });
   }
 
+  function clonePresentation(p: Presentation) {
+    const today = new Date().toISOString().slice(0, 10);
+    addPresentation({
+      ...p,
+      id: `pres-${Date.now()}`,
+      name: `${p.name} (Copy)`,
+      isTemplate: false,
+      parentPresentationId: p.id,
+      createdDate: today,
+      modifiedDate: today,
+      slides: p.slides.map((s) => ({ ...s, id: `slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` })),
+    });
+  }
+
+  const presentingPresentation = presentingId
+    ? presentations.find((p) => p.id === presentingId)
+    : undefined;
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 border-b border-divider">
-        {(['brochures', 'catalogs'] as const).map((t) => (
+      <div className="flex gap-2 border-b border-divider overflow-x-auto">
+        {(['brochures', 'catalogs', 'presentations'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors ${tab === t ? 'border-accent text-accent-light' : 'border-transparent text-fg-muted hover:text-fg'}`}>
-            {t === 'brochures' ? `Brochures (${brochures.length})` : `Catalogs (${catalogs.length})`}
+            className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors shrink-0 ${tab === t ? 'border-accent text-accent-light' : 'border-transparent text-fg-muted hover:text-fg'}`}>
+            {t === 'brochures' ? `Brochures (${brochures.length})`
+              : t === 'catalogs' ? `Catalogs (${catalogs.length})`
+              : `Presentations (${presentations.length})`}
           </button>
         ))}
       </div>
@@ -179,8 +205,113 @@ export default function BrochuresPage() {
         </>
       )}
 
+      {tab === 'presentations' && (
+        <>
+          <div className="flex justify-between items-start gap-3 flex-wrap">
+            <p className="text-xs text-fg-muted max-w-xl">
+              PowerPoint-style slide decks the rep can present on the go. Each deck is an ordered list of brochure
+              slides, product spotlights, and section titles — landscape orientation, tap-to-navigate, save to PDF.
+            </p>
+            <button onClick={() => { setEditingPresentation(undefined); setShowPresentationEditor(true); }}
+              className="flex items-center gap-1 px-3 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent-dim shrink-0">
+              <Plus size={15} /> New Presentation
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {presentations.length === 0 ? (
+              <p className="col-span-2 text-center text-sm text-fg-faint italic py-12">
+                No presentations yet. Start with "New Presentation" or clone one of the templates.
+              </p>
+            ) : presentations.map((p) => (
+              <PresentationCard key={p.id} presentation={p}
+                onPresent={() => setPresentingId(p.id)}
+                onClone={() => clonePresentation(p)}
+                onEdit={() => { setEditingPresentation(p); setShowPresentationEditor(true); }}
+                onDelete={() => { if (confirm(`Delete presentation "${p.name}"?`)) deletePresentation(p.id); }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
       {showCatalogModal && <CatalogModal catalog={editingCatalog} onClose={() => { setShowCatalogModal(false); setEditingCatalog(undefined); }} />}
+      {showPresentationEditor && (
+        <PresentationEditor
+          presentation={editingPresentation}
+          onClose={() => { setShowPresentationEditor(false); setEditingPresentation(undefined); }}
+          onPresent={(id) => {
+            setShowPresentationEditor(false);
+            setEditingPresentation(undefined);
+            setPresentingId(id);
+          }}
+        />
+      )}
+      {presentingPresentation && (
+        <PresentMode
+          presentation={presentingPresentation}
+          onClose={() => setPresentingId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PresentationCard({ presentation, onPresent, onClone, onEdit, onDelete }: {
+  presentation: Presentation;
+  onPresent: () => void;
+  onClone: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="bg-surface rounded-lg border border-divider p-4 hover:border-divider-strong transition-colors">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex gap-3 min-w-0">
+          <div className="p-2 bg-accent/10 rounded-lg self-start shrink-0">
+            <PresentationIcon size={18} className="text-accent-light" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-fg text-sm leading-tight">{presentation.name}</p>
+            <p className="text-xs text-fg-muted mt-0.5">
+              {presentation.slides.length} slide{presentation.slides.length === 1 ? '' : 's'} · {presentation.targetAudience}
+            </p>
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {presentation.isTemplate && (
+                <span className="text-xs bg-accent/15 text-accent-light px-1.5 py-0.5 rounded font-medium">Template</span>
+              )}
+              {presentation.parentPresentationId && (
+                <span className="text-xs bg-success/15 text-success px-1.5 py-0.5 rounded font-medium">Custom Clone</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          {presentation.isTemplate && (
+            <button onClick={onClone} className="p-1.5 text-fg-faint hover:text-accent-light rounded hover:bg-accent/10" title="Clone">
+              <Copy size={14} />
+            </button>
+          )}
+          <button onClick={onEdit} className="p-1.5 text-fg-faint hover:text-fg-muted rounded hover:bg-bg" title="Edit">
+            <Edit2 size={14} />
+          </button>
+          <button onClick={onDelete} className="p-1.5 text-fg-faint hover:text-danger rounded hover:bg-danger/10" title="Delete">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+      {presentation.description && (
+        <p className="text-xs text-fg-muted mt-2 leading-relaxed line-clamp-2">{presentation.description}</p>
+      )}
+      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-divider">
+        <p className="text-xs text-fg-faint">Updated {presentation.modifiedDate}</p>
+        <button
+          onClick={onPresent}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-success text-white text-xs rounded-lg hover:bg-success/90 font-medium"
+        >
+          <Play size={12} /> Present
+        </button>
+      </div>
     </div>
   );
 }

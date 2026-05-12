@@ -117,6 +117,45 @@ export interface Catalog {
   customerId?: string;
 }
 
+// ── Presentations ─────────────────────────────────────────────
+// Ordered slide deck the rep can present on a phone/tablet on the go.
+// Each slide is one of three shapes: a brochure (rendered horizontally,
+// "PowerPoint-style"), a focused product spec, or a section title.
+
+export type PresentationSlideType = 'brochure' | 'product' | 'title';
+
+export interface PresentationSlide {
+  id: string;
+  type: PresentationSlideType;
+  // For type='brochure': which brochure to render, and optional product
+  // spotlights drawn from that brochure's productIds.
+  brochureId?: string;
+  spotlightProductIds?: string[];
+  // For type='product': which product to feature.
+  productId?: string;
+  // For type='title': big-heading text. Also used as an optional override
+  // label on other slide types.
+  title?: string;
+  subtitle?: string;
+  // Speaker notes shown only in the editor — never on the present view.
+  notes?: string;
+}
+
+export interface Presentation {
+  id: string;
+  name: string;
+  description?: string;
+  slides: PresentationSlide[];
+  targetAudience: 'Architect' | 'Designer' | 'Contractor' | 'General';
+  isTemplate?: boolean;
+  parentPresentationId?: string;
+  customerId?: string;        // optional — for customer-specific decks
+  projectId?: string;         // optional — for project-specific decks
+  tags: string[];
+  createdDate: string;
+  modifiedDate: string;
+}
+
 // Multiple contacts per customer
 export interface CustomerContact {
   id: string;
