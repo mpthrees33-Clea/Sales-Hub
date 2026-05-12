@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   X, MessageSquare, Briefcase, Building2, HardHat, Home,
   Calendar, MapPin, User as UserIcon, Receipt, Mail, TrendingUp, Clock,
-  AlertCircle, ChevronDown, Sparkles, RefreshCw, Loader2, Wand2,
+  AlertCircle, ChevronDown, Sparkles, RefreshCw, Loader2, Wand2, Link2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../../store/useAppStore';
@@ -11,6 +11,7 @@ import type {
   OpportunityStatus, OpportunityStage, ProjectType, Activity,
 } from '../../types';
 import { buildOpportunitySummary } from '../../lib/opportunityAI';
+import CmdLinkModal from './CmdLinkModal';
 
 type ExtendedProject = Project & ProjectExtensions;
 
@@ -119,6 +120,7 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
 
   const [noteText, setNoteText] = useState('');
   const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
 
   function set<K extends keyof (Project & ProjectExtensions)>(
     key: K,
@@ -401,13 +403,32 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
           </div>
         </div>
 
+        {/* ── CMD link ── */}
+        <div className="border-t border-divider pt-3">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-fg-muted flex items-center gap-1.5">
+                <Link2 size={12} /> ConstructConnect (CMD)
+              </p>
+              {project.cmdProjectId ? (
+                <p className="text-xs text-fg mt-0.5 font-mono">{project.cmdProjectId}</p>
+              ) : (
+                <p className="text-xs text-fg-faint mt-0.5 italic">Not linked.</p>
+              )}
+            </div>
+            <button
+              onClick={() => setCmdOpen(true)}
+              className="text-xs text-accent-light hover:text-accent border border-divider hover:border-accent/40 rounded-lg px-3 py-1.5"
+            >
+              {project.cmdProjectId ? 'Re-pull / change' : 'Link CMD project'}
+            </button>
+          </div>
+        </div>
+
         {/* ── Footer metadata ── */}
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-divider text-xs text-fg-faint">
           <div><span className="text-fg-muted">Created</span> · {project.createdDate}</div>
           <div><span className="text-fg-muted">Updated</span> · {(project.updatedDate ?? project.createdDate).slice(0, 10)}</div>
-          {project.cmdProjectId && (
-            <div className="col-span-2"><span className="text-fg-muted">CMD</span> · {project.cmdProjectId}</div>
-          )}
         </div>
 
         {/* Keep legacy ProjectStatus in sync with opportunity status — until
@@ -415,6 +436,14 @@ export default function ProjectDetailPanel({ project, onClose }: Props) {
             Kanban still read .status. */}
         <ProjectStatusSync project={project} updateProject={updateProject} />
       </div>
+
+      {cmdOpen && (
+        <CmdLinkModal
+          project={project}
+          onClose={() => setCmdOpen(false)}
+          onApply={(patch) => updateProject(project.id, patch)}
+        />
+      )}
     </div>
   );
 }
