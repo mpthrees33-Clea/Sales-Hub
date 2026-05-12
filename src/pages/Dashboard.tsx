@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import {
   DollarSign, Users, FolderOpen, Package, FileText, Receipt,
-  Settings as SettingsIcon, X, Clock, ChevronRight,
+  Settings as SettingsIcon, X, Clock, ChevronRight, ChevronDown,
 } from 'lucide-react';
 import clsx from 'clsx';
-import type { AppSettings } from '../types';
+import type { AppSettings, AppointmentChecklist } from '../types';
 import { maybeGenerateMondayDigest } from '../lib/dormantDigest';
+import LookingAhead from '../components/dashboard/LookingAhead';
+import DailyRecap from '../components/dashboard/DailyRecap';
 
 function StatCard({ label, value, icon: Icon, hint }: {
   label: string; value: string | number; icon: React.ElementType; hint?: string;
@@ -185,16 +187,34 @@ function SettingsModal({ initial, onSave, onClose }: {
   );
 }
 
+type RecentSortKey = 'updatedDate' | 'createdDate' | 'value' | 'lastTouchAt' | 'anticipatedOrderDate' | 'name';
+
+const RECENT_SORT_LABELS: Record<RecentSortKey, string> = {
+  updatedDate:          'Recently updated',
+  createdDate:          'Recently created',
+  value:                'Largest value',
+  lastTouchAt:          'Recently touched',
+  anticipatedOrderDate: 'Closing soonest',
+  name:                 'Name (A→Z)',
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { projects, customers, sampleOrders, products, settings, updateSettings, setSelectedProjectId } = useAppStore();
   const currentRepId = useAppStore((s) => s.currentRepId);
   const dormantDigests = useAppStore((s) => s.dormantDigests);
+  const appointments = useAppStore((s) => s.appointments);
+  const activities = useAppStore((s) => s.activities);
+  const emails = useAppStore((s) => s.emails);
+  const drafts = useAppStore((s) => s.drafts);
+  const updateAppointment = useAppStore((s) => s.updateAppointment);
   const [showSettings, setShowSettings] = useState(false);
+  const [recentSort, setRecentSort] = useState<RecentSortKey>('updatedDate');
 
   const now = new Date();
   const weekStart = startOfWeek(now);
   const monthStart = startOfMonth(now);
+  const todayKey = now.toISOString().slice(0, 10);
 
   // Generate this week's dormant digest on Dashboard mount. Idempotent —
   // if a digest already exists for this rep + this week, no-op. The
@@ -229,13 +249,51 @@ export default function Dashboard() {
   const activeProjects = projects.filter((p) => p.status === 'Active' || p.status === 'Bidding');
   const pipeline = projects.filter((p) => p.status !== 'Lost').reduce((s, p) => s + p.value, 0);
 
-  const recentProjects = [...projects]
-    .sort((a, b) => b.createdDate.localeCompare(a.createdDate))
-    .slice(0, 6);
+  // Filter to the current rep's appointments + activities — Daily Recap and
+  // Looking Ahead are personal views, not company-wide aggregates.
+  const repAppointments = useMemo(
+    () => appointments.filter((a) => a.repId === currentRepId),
+    [appointments, currentRepId],
+  );
+  const repActivities = useMemo(
+    () => activities.filter((a) => a.repId === currentRepId),
+    [activities, currentRepId],
+  );
+
+  // Today's email counts for the recap.
+  const emailsTodayCount = useMemo(
+    () => emails.filter((e) => e.folder === 'inbox' && e.date.slice(0, 10) === todayKey).length,
+    [emails, todayKey],
+  );
+  const draftsTodayCount = useMemo(
+    () => drafts.filter((d) => d.repId === currentRepId && d.createdAt.slice(0, 10) === todayKey).length,
+    [drafts, currentRepId, todayKey],
+  );
+
+  const recentProjects = useMemo(() => {
+    const arr = [...projects];
+    arr.sort((a, b) => {
+      const av = a[recentSort] ?? '';
+      const bv = b[recentSort] ?? '';
+      if (typeof av === 'number' && typeof bv === 'number') return bv - av;
+      // String/date comparisons: descending for date-shaped keys, ascending for name
+      const cmp = String(bv).localeCompare(String(av));
+      return recentSort === 'name' ? -cmp : cmp;
+    });
+    return arr.slice(0, 8);
+  }, [projects, recentSort]);
 
   function openProject(id: string) {
     setSelectedProjectId(id);
     navigate('/crm');
+  }
+
+  function handleTogglePacked(id: string, key: keyof AppointmentChecklist, value: AppointmentChecklist[keyof AppointmentChecklist]) {
+    const apt = appointments.find((a) => a.id === id);
+    if (!apt) return;
+    updateAppointment(id, {
+      checklist: { ...(apt.checklist ?? {}), [key]: value },
+    });
   }
 
   return (
@@ -252,6 +310,23 @@ export default function Dashboard() {
           <SettingsIcon size={16} />
           <span className="text-sm font-medium">Edit budget targets</span>
         </button>
+      </div>
+
+      {/* Daily Recap + Looking Ahead — the rep's "what's happening today
+          and tomorrow" headline. Stacks on mobile, side-by-side on lg+. */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <DailyRecap
+          appointments={repAppointments}
+          activities={repActivities}
+          todayDate={now}
+          emailsTodayCount={emailsTodayCount}
+          draftsTodayCount={draftsTodayCount}
+        />
+        <LookingAhead
+          appointments={repAppointments}
+          todayDate={now}
+          onTogglePacked={handleTogglePacked}
+        />
       </div>
 
       {/* Dormant accounts digest — weekly */}
@@ -306,12 +381,26 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Recent Projects */}
         <div className="lg:col-span-2 bg-surface rounded-xl border border-divider overflow-hidden">
-          <div className="px-5 py-4 border-b border-divider flex items-center justify-between">
-            <div>
+          <div className="px-5 py-4 border-b border-divider flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-fg">Recent Projects</h2>
-              <p className="text-xs text-fg-muted mt-0.5">Latest activity across your pipeline</p>
+              <p className="text-xs text-fg-muted mt-0.5">{RECENT_SORT_LABELS[recentSort]}</p>
             </div>
-            <FolderOpen size={16} className="text-fg-faint" />
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative">
+                <select
+                  className="appearance-none text-xs bg-bg border border-divider rounded-lg pl-2.5 pr-7 py-1.5 text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
+                  value={recentSort}
+                  onChange={(e) => setRecentSort(e.target.value as RecentSortKey)}
+                >
+                  {(Object.keys(RECENT_SORT_LABELS) as RecentSortKey[]).map((k) => (
+                    <option key={k} value={k}>{RECENT_SORT_LABELS[k]}</option>
+                  ))}
+                </select>
+                <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-faint pointer-events-none" />
+              </div>
+              <FolderOpen size={16} className="text-fg-faint" />
+            </div>
           </div>
           <div className="divide-y divide-divider">
             {recentProjects.map((proj) => {

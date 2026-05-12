@@ -156,6 +156,55 @@ export interface Presentation {
   modifiedDate: string;
 }
 
+// ── Appointments / schedule ───────────────────────────────────
+// Drives Dashboard's Looking Ahead + Daily Recap surfaces. The
+// "personal assistant" pieces (food order for lunch & learns, samples
+// shipped check, route warnings) all hang off these records.
+
+export type AppointmentType =
+  | 'lunch_and_learn'
+  | 'presentation'
+  | 'meeting'
+  | 'site_visit'
+  | 'call'
+  | 'lunch'
+  | 'sample_walkthrough'
+  | 'travel'
+  | 'other';
+
+export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+
+export type FoodOrderStatus = 'not_needed' | 'pending' | 'ordered' | 'delivered';
+
+export interface AppointmentChecklist {
+  foodOrdered?: FoodOrderStatus;        // lunch_and_learn / lunch
+  samplesShipped?: boolean;             // site visits / presentations
+  brochuresAttached?: boolean;          // presentations / meetings
+  presentationDeckReady?: boolean;      // presentations
+  confirmedWithCustomer?: boolean;      // any
+  routeChecked?: boolean;
+}
+
+export interface Appointment {
+  id: string;
+  repId: string;
+  type: AppointmentType;
+  title: string;
+  date: string;             // ISO date YYYY-MM-DD
+  startTime: string;        // HH:MM 24h
+  durationMin: number;
+  status: AppointmentStatus;
+  customerId?: string;
+  projectId?: string;
+  presentationId?: string;  // for presentations
+  attendeeCount?: number;
+  location?: string;        // venue name (e.g. "Greer Architecture office")
+  address?: string;
+  notes?: string;
+  checklist?: AppointmentChecklist;
+  createdDate: string;
+}
+
 // Multiple contacts per customer
 export interface CustomerContact {
   id: string;

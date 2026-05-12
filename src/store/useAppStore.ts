@@ -6,7 +6,7 @@ import type {
   PriceEntry, DistributorPriceList, AppSettings,
   Rep, SalesLocation, EmailThread, EmailDraft,
   Quote, Activity, GcSubEdge, DormantDigest,
-  ProjectExtensions, Presentation,
+  ProjectExtensions, Presentation, Appointment,
 } from '../types';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -22,7 +22,7 @@ import {
   seedReps, seedSalesLocations,
   seedEmailThreads, seedEmailDrafts,
   seedActivities, seedGcSubEdges, seedDormantDigests, seedQuotes,
-  seedPresentations,
+  seedPresentations, seedAppointments,
   CUSTOMER_ROLES_BACKFILL,
 } from '../data/seedData';
 
@@ -63,6 +63,7 @@ interface AppState {
   dormantDigests: DormantDigest[];
   quotes: Quote[];
   presentations: Presentation[];
+  appointments: Appointment[];
 
   // Settings
   settings: AppSettings;
@@ -145,6 +146,11 @@ interface AppState {
   updatePresentation: (id: string, patch: Partial<Presentation>) => void;
   deletePresentation: (id: string) => void;
 
+  // Actions — Appointments
+  addAppointment: (a: Appointment) => void;
+  updateAppointment: (id: string, patch: Partial<Appointment>) => void;
+  deleteAppointment: (id: string) => void;
+
   // Actions — UI
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -205,6 +211,7 @@ export const useAppStore = create<AppState>()(
       dormantDigests: seedDormantDigests,
       quotes: seedQuotes,
       presentations: seedPresentations,
+      appointments: seedAppointments,
       settings: DEFAULT_SETTINGS,
       sidebarOpen: true,
       selectedProjectId: null,
@@ -341,6 +348,15 @@ export const useAppStore = create<AppState>()(
       deletePresentation: (id) =>
         set((s) => ({ presentations: s.presentations.filter((p) => p.id !== id) })),
 
+      // Appointments
+      addAppointment: (a) => set((s) => ({ appointments: [...s.appointments, a] })),
+      updateAppointment: (id, patch) =>
+        set((s) => ({
+          appointments: s.appointments.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+        })),
+      deleteAppointment: (id) =>
+        set((s) => ({ appointments: s.appointments.filter((a) => a.id !== id) })),
+
       // UI
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -366,7 +382,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 8,
+      version: 9,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -389,6 +405,10 @@ export const useAppStore = create<AppState>()(
       //            decks (LVP architect pitch / hardwood designer pitch /
       //            healthcare contractor spec). Append-only on existing
       //            presentations array.
+      //   v8 → v9: add Appointment store + seed the demo week for Colton
+      //            (yesterday + today + 5 days ahead including a Wed
+      //            lunch & learn at Greer Architecture with food pending).
+      //            Append-only.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -530,6 +550,16 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // v8 → v9: seed appointments — drive Dashboard's Looking Ahead.
+        if (!Array.isArray(persisted.appointments)) {
+          persisted.appointments = [...seedAppointments];
+        } else {
+          const existing = new Set(persisted.appointments.map((a: any) => a?.id));
+          for (const apt of seedAppointments) {
+            if (!existing.has(apt.id)) persisted.appointments.push(apt);
+          }
+        }
+
         return persisted;
       },
       // Don't persist file objects (objectURLs) — only metadata persists
@@ -552,6 +582,7 @@ export const useAppStore = create<AppState>()(
         dormantDigests: state.dormantDigests,
         quotes: state.quotes,
         presentations: state.presentations,
+        appointments: state.appointments,
         settings: state.settings,
         currentRepId: state.currentRepId,
       }),

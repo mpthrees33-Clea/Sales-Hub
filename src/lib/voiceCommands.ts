@@ -30,6 +30,10 @@ export async function tryPageVoiceCommand(
     const r = await tryEmailCommand(t);
     if (r !== null) return r;
   }
+  // Scheduling commands work from any page — checked before CRM so phrases
+  // like "what's tomorrow look like" don't false-positive on project names.
+  const scheduleResp = trySchedulingCommand(t);
+  if (scheduleResp !== null) return scheduleResp;
   // CRM commands work from any page — the rep can update a project while
   // driving regardless of which screen is up.
   return tryCrmCommand(t);
@@ -351,6 +355,180 @@ function describeProject(p: ExtendedProject): string {
   if (days < Infinity) parts.push(`last touched ${days} days ago`);
   if (p.nextStep) parts.push(`. Next step: ${p.nextStep}`);
   return parts.join(' · ').replace(' · . ', '. ');
+}
+
+// ── Scheduling commands ──────────────────────────────────────
+// "what's tomorrow look like" / "what's my week look like" / "did I order
+// food for the X lunch and learn" — read-only queries against the rep's
+// appointment list. TTS-friendly phrasing so the rep can listen while
+// driving.
+function trySchedulingCommand(text: string): string | null {
+  const state = useAppStore.getState();
+  const myAppointments = state.appointments.filter(
+    (a) => a.repId === state.currentRepId && a.status !== 'cancelled',
+  );
+
+  // Food-order status query — high priority because it's so common while
+  // driving the morning of an event.
+  const foodMatch = text.match(/^did\s+I\s+order\s+(?:the\s+)?food(?:\s+for\s+(.+?))?\??[\s.!]*$/i)
+    ?? text.match(/^(?:has|is)\s+(?:the\s+)?food\s+(?:been\s+)?ordered(?:\s+for\s+(.+?))?\??[\s.!]*$/i);
+  if (foodMatch) {
+    const targetQuery = foodMatch[1]?.trim().toLowerCase();
+    const lunchAndLearns = myAppointments.filter((a) =>
+      a.type === 'lunch_and_learn' || a.type === 'lunch',
+    );
+    const candidate = targetQuery
+      ? lunchAndLearns.find((a) => {
+          const customer = state.customers.find((c) => c.id === a.customerId);
+          const hay = `${a.title} ${customer?.company ?? ''} ${a.location ?? ''}`.toLowerCase();
+          return hay.includes(targetQuery);
+        })
+      : lunchAndLearns.find((a) => a.date >= todayKey()) // next upcoming
+      ;
+    if (!candidate) {
+      return targetQuery
+        ? `Couldn't find a lunch & learn matching "${targetQuery}".`
+        : `No upcoming lunch & learns on the books.`;
+    }
+    const status = candidate.checklist?.foodOrdered ?? 'pending';
+    const customer = state.customers.find((c) => c.id === candidate.customerId);
+    const where = customer?.company ?? candidate.title;
+    if (status === 'ordered') return `Yes, food's ordered for ${where}.`;
+    if (status === 'delivered') return `Food's confirmed delivered for ${where}.`;
+    if (status === 'not_needed') return `No food order needed for ${where} — it's not catered.`;
+    return `No — food still needs to be ordered for ${where}. ${candidate.notes ?? ''}`.trim();
+  }
+
+  // "what's today look like" / "what's tomorrow look like" / "what's my week look like"
+  const dayQuery = text.match(/^(?:what'?s|what is|what\s+does)\s+(today|tomorrow|my\s+(?:day|week)|the\s+(?:day|week))\s+(?:look\s+like|on(?:\s+(?:the|my))?\s+(?:calendar|schedule|agenda)|got\s+going)\??[\s.!]*$/i)
+    ?? text.match(/^(?:do I have|any)\s+(?:any\s*)?(?:thing|appointments?)\s+(today|tomorrow)\??[\s.!]*$/i)
+    ?? text.match(/^(?:what's|what\s+is)\s+(?:on)?\s*(?:my|the)?\s*(today's|tomorrow's|week's)\s+(?:agenda|schedule)\??[\s.!]*$/i);
+  if (dayQuery) {
+    const scope = dayQuery[1].toLowerCase();
+    const now = new Date();
+    if (scope.includes('week')) {
+      return summarizeWeek(myAppointments, now);
+    }
+    if (scope.includes('today')) {
+      return summarizeDay(myAppointments, now, 'today');
+    }
+    if (scope.includes('tomorrow')) {
+      const t = new Date(now);
+      t.setDate(t.getDate() + 1);
+      return summarizeDay(myAppointments, t, 'tomorrow');
+    }
+    // "what's my day look like" → today
+    if (scope.includes('day')) {
+      return summarizeDay(myAppointments, now, 'today');
+    }
+  }
+
+  // "next appointment" / "what's next"
+  if (/^(?:what's|what\s+is)\s+(?:my\s+)?next(?:\s+(?:appointment|meeting))?[\s.!?]*$/i.test(text)) {
+    const upcoming = myAppointments
+      .filter((a) => a.date >= todayKey() && a.status !== 'completed')
+      .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+    const next = upcoming[0];
+    if (!next) return "Nothing else on the books.";
+    const customer = state.customers.find((c) => c.id === next.customerId);
+    return `Next up: ${formatAppointmentForSpeech(next, customer?.company)}.`;
+  }
+
+  return null;
+}
+
+function todayKey(): string {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
+}
+
+function summarizeDay(
+  appointments: ReturnType<typeof useAppStore.getState>['appointments'],
+  date: Date,
+  label: 'today' | 'tomorrow',
+): string {
+  const state = useAppStore.getState();
+  const key = date.toISOString().slice(0, 10);
+  const day = appointments.filter((a) => a.date === key && a.status !== 'completed' && a.status !== 'cancelled')
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  if (day.length === 0) return `Nothing on the books ${label}.`;
+
+  const summary = day.map((a) => {
+    const customer = state.customers.find((c) => c.id === a.customerId);
+    return formatAppointmentForSpeech(a, customer?.company);
+  }).join('. ');
+
+  // Surface urgent action items
+  const urgent = day.flatMap((a) => {
+    const c = a.checklist ?? {};
+    const items: string[] = [];
+    if ((a.type === 'lunch_and_learn' || a.type === 'lunch') &&
+        (c.foodOrdered === 'pending' || c.foodOrdered === undefined)) {
+      items.push(`food still needs to be ordered for the ${describeApt(a)}`);
+    }
+    if ((a.type === 'site_visit' || a.type === 'presentation') && c.samplesShipped === false) {
+      items.push(`samples haven't shipped yet for the ${describeApt(a)}`);
+    }
+    return items;
+  });
+
+  let response = `${day.length} appointment${day.length === 1 ? '' : 's'} ${label}. ${summary}`;
+  if (urgent.length > 0) {
+    response += `. Heads up — ${urgent.join('; ')}.`;
+  }
+  return response;
+}
+
+function summarizeWeek(
+  appointments: ReturnType<typeof useAppStore.getState>['appointments'],
+  now: Date,
+): string {
+  const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const cutoff = new Date(todayMid);
+  cutoff.setDate(cutoff.getDate() + 7);
+  const upcoming = appointments
+    .filter((a) => a.status !== 'completed' && a.status !== 'cancelled')
+    .filter((a) => {
+      const d = new Date(a.date + 'T12:00:00');
+      return d >= todayMid && d < cutoff;
+    });
+  if (upcoming.length === 0) return "Nothing on the books this week.";
+
+  // Group by date
+  const byDate = new Map<string, number>();
+  for (const a of upcoming) {
+    byDate.set(a.date, (byDate.get(a.date) ?? 0) + 1);
+  }
+  const dayParts = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, count]) => {
+    const d = new Date(date + 'T12:00:00');
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+    return `${dayName}: ${count}`;
+  });
+
+  return `${upcoming.length} appointments this week. ${dayParts.join(', ')}.`;
+}
+
+function formatAppointmentForSpeech(a: ReturnType<typeof useAppStore.getState>['appointments'][number], customerName?: string): string {
+  const [h, m] = a.startTime.split(':').map((n) => parseInt(n, 10));
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const timeStr = m === 0 ? `${h12} ${period}` : `${h12}:${String(m).padStart(2, '0')} ${period}`;
+  const withWho = customerName ? ` with ${customerName}` : '';
+  return `${timeStr} — ${describeApt(a)}${withWho}`;
+}
+
+function describeApt(a: ReturnType<typeof useAppStore.getState>['appointments'][number]): string {
+  switch (a.type) {
+    case 'lunch_and_learn':    return 'lunch & learn';
+    case 'presentation':       return 'presentation';
+    case 'meeting':            return 'meeting';
+    case 'site_visit':         return 'site visit';
+    case 'call':               return 'call';
+    case 'lunch':              return 'lunch';
+    case 'sample_walkthrough': return 'sample walk-through';
+    case 'travel':             return 'travel';
+    default:                   return 'appointment';
+  }
 }
 
 // Wraps a dictated body fragment with a sensible greeting + sign-off so the

@@ -5,7 +5,7 @@ import type {
   Rep, SalesLocation, EmailThread, EmailDraft,
   Quote, Activity, GcSubEdge, DormantDigest,
   ProjectExtensions, CustomerRole,
-  Presentation,
+  Presentation, Appointment,
 } from '../types';
 
 // Customer functional roles. Source of truth — stakeholder pickers read
@@ -1481,6 +1481,190 @@ export const seedPresentations: Presentation[] = [
       { id: 'slide-6', type: 'brochure', brochureId: 'b6', notes: 'Commercial carpet for offices + waiting rooms — solution-dyed nylon, 28oz loop.' },
     ],
     createdDate: '2026-02-22', modifiedDate: '2026-04-20',
+  },
+];
+
+// ── Appointments (rep-sarah / Colton) ─────────────────────────
+// Anchored to the current demo date (2026-05-12 / Tuesday). Lays out a
+// realistic week so Looking Ahead can show:
+//   - Today (Tue): 2 appointments, 1 already completed
+//   - Wed: 4 appointments including a lunch & learn at Greer Architecture
+//     with food NOT yet ordered (the headline action item)
+//   - Thu / Fri: lighter days, mix of types
+//   - Next Mon / Tue: 3-2 split
+//   - Yesterday (Mon) + Friday-prior: completed for the recap
+export const seedAppointments: Appointment[] = [
+  // Yesterday — Mon 2026-05-11 (completed, drives daily recap)
+  {
+    id: 'apt-1', repId: 'rep-sarah', type: 'meeting', status: 'completed',
+    title: 'Buckhead Tower walk-through with Marcus Webb',
+    date: '2026-05-11', startTime: '09:00', durationMin: 75,
+    customerId: 'c1', projectId: 'pr1',
+    location: 'Webb Construction office', address: '1200 Peachtree St NE, Atlanta, GA 30309',
+    checklist: { samplesShipped: true, confirmedWithCustomer: true, routeChecked: true },
+    createdDate: '2026-04-30',
+  },
+  {
+    id: 'apt-2', repId: 'rep-sarah', type: 'site_visit', status: 'completed',
+    title: 'Decatur Townhomes site walkthrough',
+    date: '2026-05-11', startTime: '14:00', durationMin: 90,
+    customerId: 'c1', projectId: 'pr19',
+    location: 'Project site', address: '450 W Trinity Pl, Decatur, GA 30030',
+    checklist: { samplesShipped: true, routeChecked: true, confirmedWithCustomer: true },
+    createdDate: '2026-04-28',
+  },
+
+  // Today — Tue 2026-05-12
+  {
+    id: 'apt-3', repId: 'rep-sarah', type: 'call', status: 'completed',
+    title: 'Janet Osei — RFP submission walk-through',
+    date: '2026-05-12', startTime: '09:30', durationMin: 30,
+    customerId: 'c8', projectId: 'pr7',
+    location: 'Phone',
+    checklist: { confirmedWithCustomer: true },
+    createdDate: '2026-05-08',
+  },
+  {
+    id: 'apt-4', repId: 'rep-sarah', type: 'meeting', status: 'confirmed',
+    title: 'Sandy Springs Corporate Campus — spec review',
+    date: '2026-05-12', startTime: '15:00', durationMin: 60,
+    customerId: 'c11', projectId: 'pr20',
+    location: 'Atlantic Capital HQ', address: '3344 Peachtree Rd NE, Atlanta, GA 30326',
+    checklist: { samplesShipped: true, brochuresAttached: true, confirmedWithCustomer: true, routeChecked: true },
+    createdDate: '2026-05-02',
+  },
+
+  // Tomorrow — Wed 2026-05-13 (the "best personal assistant" day)
+  {
+    id: 'apt-5', repId: 'rep-sarah', type: 'site_visit', status: 'confirmed',
+    title: 'Roswell Class A Office Park — pre-spec walkthrough',
+    date: '2026-05-13', startTime: '08:30', durationMin: 90,
+    customerId: 'c1', projectId: 'pr36',
+    location: 'Job site', address: '11455 Sanctuary Blvd, Roswell, GA 30076',
+    attendeeCount: 3,
+    checklist: { samplesShipped: true, brochuresAttached: true, confirmedWithCustomer: true, routeChecked: false },
+    notes: 'Bring SPC + carpet samples. Marcus will meet us on-site.',
+    createdDate: '2026-04-25',
+  },
+  {
+    id: 'apt-6', repId: 'rep-sarah', type: 'lunch_and_learn', status: 'confirmed',
+    title: 'Lunch & Learn — Greer Architecture spec team',
+    date: '2026-05-13', startTime: '11:30', durationMin: 75,
+    customerId: 'c3', projectId: 'pr3',
+    location: 'Greer Architecture office', address: '500 Commerce Dr, Marietta, GA 30060',
+    attendeeCount: 8,
+    presentationId: 'pres-template-commercial-lvp',
+    checklist: {
+      foodOrdered: 'pending',     // <-- THE headline action item
+      brochuresAttached: true,
+      presentationDeckReady: true,
+      confirmedWithCustomer: true,
+      routeChecked: false,
+    },
+    notes: '8 attendees confirmed. 2 vegetarian. Order from Mediterranean Grill (Tom\'s preference) by 9am day-of.',
+    createdDate: '2026-04-18',
+  },
+  {
+    id: 'apt-7', repId: 'rep-sarah', type: 'site_visit', status: 'confirmed',
+    title: 'Macon Central High — site walk',
+    date: '2026-05-13', startTime: '14:00', durationMin: 90,
+    customerId: 'c7', projectId: 'pr14',
+    location: 'Project site', address: '2155 Napier Ave, Macon, GA 31204',
+    attendeeCount: 2,
+    checklist: { samplesShipped: false, confirmedWithCustomer: true, routeChecked: false },
+    notes: '90-min drive from Marietta. Samples have NOT shipped yet.',
+    createdDate: '2026-05-05',
+  },
+  {
+    id: 'apt-8', repId: 'rep-sarah', type: 'call', status: 'scheduled',
+    title: 'Priya Nair — Inman Park boutique hotel re-engagement',
+    date: '2026-05-13', startTime: '17:00', durationMin: 30,
+    customerId: 'c2', projectId: 'pr11',
+    location: 'Phone',
+    checklist: { confirmedWithCustomer: false },
+    notes: 'Project went dormant — need to lock down whether they\'re still moving forward.',
+    createdDate: '2026-05-09',
+  },
+
+  // Thursday — Thu 2026-05-14
+  {
+    id: 'apt-9', repId: 'rep-sarah', type: 'presentation', status: 'confirmed',
+    title: 'Premium Hardwood presentation — Highline Design',
+    date: '2026-05-14', startTime: '10:00', durationMin: 60,
+    customerId: 'c16', projectId: 'pr34',
+    location: 'Highline Design Studio', address: '888 W Marietta St NW, Atlanta, GA 30318',
+    attendeeCount: 4,
+    presentationId: 'pres-template-hardwood-residential',
+    checklist: { brochuresAttached: true, presentationDeckReady: true, confirmedWithCustomer: true, routeChecked: true },
+    createdDate: '2026-04-30',
+  },
+  {
+    id: 'apt-10', repId: 'rep-sarah', type: 'meeting', status: 'confirmed',
+    title: 'Marcus Reilly — Highlands NC vacation home',
+    date: '2026-05-14', startTime: '15:00', durationMin: 45,
+    customerId: 'c12', projectId: 'pr29',
+    location: 'Reilly residence', address: '1065 Peachtree St NE Unit PH, Atlanta, GA 30309',
+    checklist: { samplesShipped: false, confirmedWithCustomer: true, routeChecked: true },
+    notes: 'Bring hardwood and cork samples — Marcus mentioned cork for the media room.',
+    createdDate: '2026-05-01',
+  },
+
+  // Friday — Fri 2026-05-15
+  {
+    id: 'apt-11', repId: 'rep-sarah', type: 'lunch', status: 'scheduled',
+    title: 'Lunch — Tom Greer (relationship maintenance)',
+    date: '2026-05-15', startTime: '12:00', durationMin: 75,
+    customerId: 'c3',
+    location: 'Bones Restaurant', address: '3130 Piedmont Rd NE, Atlanta, GA 30305',
+    checklist: { foodOrdered: 'not_needed', confirmedWithCustomer: false },
+    notes: 'Confirm with Tom — placeholder on calendar.',
+    createdDate: '2026-05-04',
+  },
+
+  // Next Monday — Mon 2026-05-18
+  {
+    id: 'apt-12', repId: 'rep-sarah', type: 'sample_walkthrough', status: 'scheduled',
+    title: 'Cobb Senior Living — sample review',
+    date: '2026-05-18', startTime: '09:00', durationMin: 60,
+    customerId: 'c3', projectId: 'pr9',
+    location: 'Greer Architecture office', address: '500 Commerce Dr, Marietta, GA 30060',
+    checklist: { samplesShipped: false, brochuresAttached: false, confirmedWithCustomer: false, routeChecked: false },
+    notes: 'Following up from dormant digest re-engagement. Confirm with Tom before Friday.',
+    createdDate: '2026-05-10',
+  },
+  {
+    id: 'apt-13', repId: 'rep-sarah', type: 'presentation', status: 'scheduled',
+    title: 'Healthcare flooring spec — Sterling Biopharm',
+    date: '2026-05-18', startTime: '13:00', durationMin: 90,
+    customerId: 'c15', projectId: 'pr33',
+    location: 'Sterling Biopharm', address: '2200 Lake Park Dr, Smyrna, GA 30080',
+    attendeeCount: 5,
+    presentationId: 'pres-template-healthcare',
+    checklist: { samplesShipped: false, brochuresAttached: true, presentationDeckReady: true, confirmedWithCustomer: true, routeChecked: false },
+    createdDate: '2026-05-05',
+  },
+  {
+    id: 'apt-14', repId: 'rep-sarah', type: 'meeting', status: 'scheduled',
+    title: 'Hines Property Group — Buckhead Luxury Condos spec',
+    date: '2026-05-18', startTime: '16:00', durationMin: 60,
+    customerId: 'c10', projectId: 'pr17',
+    location: 'Hines Atlanta', address: '1600 Howell Mill Rd, Atlanta, GA 30318',
+    attendeeCount: 3,
+    checklist: { samplesShipped: false, brochuresAttached: false, confirmedWithCustomer: false, routeChecked: false },
+    createdDate: '2026-05-10',
+  },
+
+  // Next Tuesday — Tue 2026-05-19
+  {
+    id: 'apt-15', repId: 'rep-sarah', type: 'site_visit', status: 'scheduled',
+    title: 'Augusta Riverwalk Condos — owner walkthrough',
+    date: '2026-05-19', startTime: '10:00', durationMin: 120,
+    customerId: 'c6', projectId: 'pr13',
+    location: 'Project site', address: '1 10th St, Augusta, GA 30901',
+    attendeeCount: 4,
+    checklist: { samplesShipped: false, confirmedWithCustomer: false, routeChecked: false },
+    notes: '2.5 hours from Atlanta. Plan to leave by 7am.',
+    createdDate: '2026-05-08',
   },
 ];
 // Seeded so the GC↔sub learning view has visible data on first load.
