@@ -221,6 +221,43 @@ export const seedCustomers: Customer[] = [
     ],
     createdDate: '2024-08-05',
   },
+  // ── Flooring sub-contractors / dealers (used by the GC↔sub learning view) ──
+  {
+    id: 'c18', name: 'Donovan Reece', company: 'Atlantic Flooring Group', type: 'Dealer',
+    email: 'donovan@atlanticflooring.com', phone: '404-555-1801',
+    billingAddress: '1200 Marietta St NW', billingCity: 'Atlanta', billingState: 'GA', billingZip: '30318',
+    contacts: [
+      { id: 'c18-ct1', name: 'Donovan Reece', title: 'Commercial Sales Director', email: 'donovan@atlanticflooring.com', phone: '404-555-1801', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c18-s1', label: 'Office', address: '1200 Marietta St NW', city: 'Atlanta', state: 'GA', zip: '30318', isDefault: true },
+    ],
+    createdDate: '2024-03-22',
+  },
+  {
+    id: 'c19', name: 'Mia Holloway', company: 'Coastal Surfaces Inc', type: 'Dealer',
+    email: 'mia@coastalsurfaces.com', phone: '912-555-1901',
+    billingAddress: '2400 Skidaway Rd', billingCity: 'Savannah', billingState: 'GA', billingZip: '31404',
+    contacts: [
+      { id: 'c19-ct1', name: 'Mia Holloway', title: 'President', email: 'mia@coastalsurfaces.com', phone: '912-555-1901', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c19-s1', label: 'Office', address: '2400 Skidaway Rd', city: 'Savannah', state: 'GA', zip: '31404', isDefault: true },
+    ],
+    createdDate: '2024-04-10',
+  },
+  {
+    id: 'c20', name: 'Harlan Boyd', company: 'Piedmont Floor Specialists', type: 'Dealer',
+    email: 'harlan@piedmontfloor.com', phone: '706-555-2001',
+    billingAddress: '1100 Walton Way', billingCity: 'Augusta', billingState: 'GA', billingZip: '30901',
+    contacts: [
+      { id: 'c20-ct1', name: 'Harlan Boyd', title: 'GM', email: 'harlan@piedmontfloor.com', phone: '706-555-2001', isPrimary: true },
+    ],
+    shipToAddresses: [
+      { id: 'c20-s1', label: 'Showroom', address: '1100 Walton Way', city: 'Augusta', state: 'GA', zip: '30901', isDefault: true },
+    ],
+    createdDate: '2024-05-18',
+  },
 ];
 
 // ── PRODUCTS ─────────────────────────────────────────────────
@@ -1162,6 +1199,44 @@ export const seedReps: Rep[] = [
 export const seedEmailThreads: EmailThread[] = [];
 export const seedEmailDrafts: EmailDraft[] = [];
 export const seedActivities: Activity[] = [];
-export const seedGcSubEdges: GcSubEdge[] = [];
+// Seeded so the GC↔sub learning view has visible data on first load.
+// Real edges accumulate organically as quotes ship (services/quotes.ts logs
+// them when a project's gcCustomerId + bidder.awarded line up). These rows
+// document Trinity's historical exposure to each major GC's flooring picks.
+export const seedGcSubEdges: GcSubEdge[] = [
+  // Webb Construction (c1) — leans on Kim Floor + Atlantic Flooring
+  { id: 'gse-1',  gcCustomerId: 'c1', subCustomerId: 'c4',  projectId: 'pr-h-1',  wonDate: '2024-06-12', projectValue: 165_000 },
+  { id: 'gse-2',  gcCustomerId: 'c1', subCustomerId: 'c4',  projectId: 'pr-h-2',  wonDate: '2024-09-04', projectValue: 220_000 },
+  { id: 'gse-3',  gcCustomerId: 'c1', subCustomerId: 'c18', projectId: 'pr-h-3',  wonDate: '2024-11-19', projectValue: 95_000 },
+  { id: 'gse-4',  gcCustomerId: 'c1', subCustomerId: 'c9',  projectId: 'pr-h-4',  wonDate: '2024-02-21', projectValue: 48_000 },
+  { id: 'gse-5',  gcCustomerId: 'c1', subCustomerId: 'c4',  projectId: 'pr-h-5',  wonDate: '2025-01-14', projectValue: 178_000 },
+
+  // Stafford Commercial Build (c7) — strong relationship with Coastal Surfaces
+  { id: 'gse-6',  gcCustomerId: 'c7', subCustomerId: 'c19', projectId: 'pr-h-6',  wonDate: '2024-04-18', projectValue: 78_000 },
+  { id: 'gse-7',  gcCustomerId: 'c7', subCustomerId: 'c19', projectId: 'pr-h-7',  wonDate: '2024-08-30', projectValue: 142_000 },
+  { id: 'gse-8',  gcCustomerId: 'c7', subCustomerId: 'c18', projectId: 'pr-h-8',  wonDate: '2024-12-05', projectValue: 65_000 },
+  { id: 'gse-9',  gcCustomerId: 'c7', subCustomerId: 'c19', projectId: 'pr-h-9',  wonDate: '2025-02-11', projectValue: 92_000 },
+
+  // Hines Property Group (c10) — splits between Piedmont and Kim
+  { id: 'gse-10', gcCustomerId: 'c10', subCustomerId: 'c20', projectId: 'pr-h-10', wonDate: '2024-05-30', projectValue: 135_000 },
+  { id: 'gse-11', gcCustomerId: 'c10', subCustomerId: 'c20', projectId: 'pr-h-11', wonDate: '2024-10-08', projectValue: 198_000 },
+  { id: 'gse-12', gcCustomerId: 'c10', subCustomerId: 'c4',  projectId: 'pr-h-12', wonDate: '2025-03-04', projectValue: 285_000 },
+
+  // Atlantic Capital Developers (c11) — Kim Floor preferred sub
+  { id: 'gse-13', gcCustomerId: 'c11', subCustomerId: 'c4',  projectId: 'pr-h-13', wonDate: '2024-07-22', projectValue: 410_000 },
+  { id: 'gse-14', gcCustomerId: 'c11', subCustomerId: 'c4',  projectId: 'pr-h-14', wonDate: '2024-11-08', projectValue: 320_000 },
+  { id: 'gse-15', gcCustomerId: 'c11', subCustomerId: 'c18', projectId: 'pr-h-15', wonDate: '2025-01-30', projectValue: 105_000 },
+
+  // Johnson Renovations (c5, Savannah) — Coastal Surfaces local play
+  { id: 'gse-16', gcCustomerId: 'c5',  subCustomerId: 'c19', projectId: 'pr-h-16', wonDate: '2024-08-15', projectValue: 32_000 },
+  { id: 'gse-17', gcCustomerId: 'c5',  subCustomerId: 'c19', projectId: 'pr-h-17', wonDate: '2025-01-09', projectValue: 41_000 },
+
+  // Vineyard Hotel Group (c14, Savannah)
+  { id: 'gse-18', gcCustomerId: 'c14', subCustomerId: 'c19', projectId: 'pr-h-18', wonDate: '2024-09-22', projectValue: 188_000 },
+
+  // Calhoun Public Works (c17, public-sector)
+  { id: 'gse-19', gcCustomerId: 'c17', subCustomerId: 'c20', projectId: 'pr-h-19', wonDate: '2024-06-04', projectValue: 88_000 },
+  { id: 'gse-20', gcCustomerId: 'c17', subCustomerId: 'c20', projectId: 'pr-h-20', wonDate: '2024-12-15', projectValue: 124_000 },
+];
 export const seedDormantDigests: DormantDigest[] = [];
 export const seedQuotes: Quote[] = [];

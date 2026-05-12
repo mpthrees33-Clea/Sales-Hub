@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
-  Plus, List, LayoutGrid, Search, Flame, AlarmClock, Snowflake, CalendarClock,
+  Plus, List, LayoutGrid, Search, Flame, AlarmClock, Snowflake, CalendarClock, BarChart3,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type {
@@ -9,6 +9,7 @@ import type {
 } from '../types';
 import NewProjectModal from '../components/crm/NewProjectModal';
 import ProjectDetailPanel from '../components/crm/ProjectDetailPanel';
+import InsightsView from '../components/crm/InsightsView';
 
 type ExtendedProject = Project & ProjectExtensions;
 
@@ -460,7 +461,7 @@ export default function CRMPage() {
   const selectedProjectId = useAppStore((s) => s.selectedProjectId);
   const setSelectedProjectId = useAppStore((s) => s.setSelectedProjectId);
 
-  const [view, setView] = useState<'kanban' | 'list'>('kanban');
+  const [view, setView] = useState<'kanban' | 'list' | 'insights'>('kanban');
   const [selected, setSelected] = useState<ExtendedProject | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -519,6 +520,10 @@ export default function CRMPage() {
             className={clsx('px-3 py-1.5 text-sm flex items-center gap-1.5', view === 'list' ? 'bg-accent text-white' : 'bg-surface text-fg-muted hover:bg-bg')}>
             <List size={14} /> List
           </button>
+          <button onClick={() => setView('insights')}
+            className={clsx('px-3 py-1.5 text-sm flex items-center gap-1.5', view === 'insights' ? 'bg-accent text-white' : 'bg-surface text-fg-muted hover:bg-bg')}>
+            <BarChart3 size={14} /> Insights
+          </button>
         </div>
 
         {/* Search */}
@@ -539,7 +544,9 @@ export default function CRMPage() {
         </button>
       </div>
 
-      {/* ── Smart filter presets ── one-tap views the rep can act on */}
+      {/* ── Smart filter presets ── one-tap views the rep can act on.
+            Hidden in Insights view since filters don't apply there. */}
+      {view !== 'insights' && (
       <div className="flex flex-wrap items-center gap-2">
         {PRESETS.map((p) => {
           const active = preset === p.key;
@@ -569,8 +576,10 @@ export default function CRMPage() {
           </button>
         )}
       </div>
+      )}
 
       {/* ── Filter chip row ── */}
+      {view !== 'insights' && (
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <FilterGroup label="Rep" value={repFilter} onChange={(v) => setRepFilter(v as 'mine' | 'all')}
           options={[
@@ -608,8 +617,11 @@ export default function CRMPage() {
           {dormantCount > 0 && <span className="text-warning ml-2">· {dormantCount} dormant</span>}
         </div>
       </div>
+      )}
 
-      {view === 'kanban' ? (
+      {view === 'insights' ? (
+        <InsightsView />
+      ) : view === 'kanban' ? (
         <KanbanBoard projects={filtered} onSelect={setSelected} />
       ) : (
         <ListView

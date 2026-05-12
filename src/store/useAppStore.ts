@@ -30,6 +30,9 @@ import {
 // clobbering any rep-edited data.
 const SEED_DORMANT_CUSTOMER_IDS = ['c13', 'c14', 'c15', 'c16', 'c17'];
 const SEED_DORMANT_PROJECT_IDS = ['pr21', 'pr22', 'pr23', 'pr24', 'pr25'];
+// v6: dealers/subs used by the GC↔sub learning view + the historical GcSubEdge
+// dataset that drives that view's first impression.
+const SEED_SUB_CUSTOMER_IDS = ['c18', 'c19', 'c20'];
 
 // Projects are stored as Project & ProjectExtensions so the new opportunity
 // fields are first-class. Existing pages that consume `Project` keep working
@@ -319,7 +322,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 5,
+      version: 6,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -331,6 +334,9 @@ export const useAppStore = create<AppState>()(
       //            Rewrites rep display fields + every email's from/fromName
       //            so the user's persisted demo state reflects the new
       //            identity instead of showing stale Sarah signatures.
+      //   v5 → v6: merge in dealer/sub customers (c18–c20) + the historical
+      //            GcSubEdge dataset that drives the new CRM Insights view.
+      //            Append-only.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -419,6 +425,24 @@ export const useAppStore = create<AppState>()(
               ),
             };
           });
+        }
+
+        // v5 → v6: merge in dealer/sub customers + seeded gcSubEdges so the
+        // new CRM Insights view has data on first visit. Append-only.
+        if (Array.isArray(persisted.customers)) {
+          const existing = new Set(persisted.customers.map((c: any) => c?.id));
+          for (const id of SEED_SUB_CUSTOMER_IDS) {
+            const seedRecord = seedCustomers.find((c) => c.id === id);
+            if (seedRecord && !existing.has(id)) persisted.customers.push(seedRecord);
+          }
+        }
+        if (Array.isArray(persisted.gcSubEdges)) {
+          const existing = new Set(persisted.gcSubEdges.map((e: any) => e?.id));
+          for (const edge of seedGcSubEdges) {
+            if (!existing.has(edge.id)) persisted.gcSubEdges.push(edge);
+          }
+        } else {
+          persisted.gcSubEdges = [...seedGcSubEdges];
         }
 
         return persisted;
