@@ -7,6 +7,7 @@ import type {
   Rep, SalesLocation, EmailThread, EmailDraft,
   Quote, Activity, GcSubEdge, DormantDigest,
   ProjectExtensions, Presentation, Appointment,
+  NewOpportunityCandidate,
 } from '../types';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -64,6 +65,7 @@ interface AppState {
   quotes: Quote[];
   presentations: Presentation[];
   appointments: Appointment[];
+  opportunityCandidates: NewOpportunityCandidate[];
 
   // Settings
   settings: AppSettings;
@@ -72,6 +74,7 @@ interface AppState {
   sidebarOpen: boolean;
   selectedProjectId: string | null;
   selectedEmailId: string | null;     // current email view (used by voice routing)
+  selectedSampleOrderId: string | null; // cross-page deep link from dashboard
   currentRepId: string;               // who am I right now (dev-mode switchable)
 
   // Actions — Products
@@ -151,11 +154,18 @@ interface AppState {
   updateAppointment: (id: string, patch: Partial<Appointment>) => void;
   deleteAppointment: (id: string) => void;
 
+  // Actions — Opportunity Candidates (pending decisions about whether
+  // to add an opportunity to CRM)
+  addOpportunityCandidate: (c: NewOpportunityCandidate) => void;
+  updateOpportunityCandidate: (id: string, patch: Partial<NewOpportunityCandidate>) => void;
+  discardOpportunityCandidate: (id: string) => void;
+
   // Actions — UI
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSelectedProjectId: (id: string | null) => void;
   setSelectedEmailId: (id: string | null) => void;
+  setSelectedSampleOrderId: (id: string | null) => void;
 
   // Utility
   lookupProductByAnyName: (query: string) => Product | undefined;
@@ -212,10 +222,12 @@ export const useAppStore = create<AppState>()(
       quotes: seedQuotes,
       presentations: seedPresentations,
       appointments: seedAppointments,
+      opportunityCandidates: [],
       settings: DEFAULT_SETTINGS,
       sidebarOpen: true,
       selectedProjectId: null,
       selectedEmailId: null,
+      selectedSampleOrderId: null,
       currentRepId: seedReps.find((r) => r.isCurrentUser)?.id ?? 'rep-sarah',
 
       // Products
@@ -357,11 +369,28 @@ export const useAppStore = create<AppState>()(
       deleteAppointment: (id) =>
         set((s) => ({ appointments: s.appointments.filter((a) => a.id !== id) })),
 
+      // Opportunity candidates
+      addOpportunityCandidate: (c) =>
+        set((s) => ({ opportunityCandidates: [...s.opportunityCandidates, c] })),
+      updateOpportunityCandidate: (id, patch) =>
+        set((s) => ({
+          opportunityCandidates: s.opportunityCandidates.map((c) =>
+            c.id === id ? { ...c, ...patch } : c,
+          ),
+        })),
+      discardOpportunityCandidate: (id) =>
+        set((s) => ({
+          opportunityCandidates: s.opportunityCandidates.map((c) =>
+            c.id === id ? { ...c, status: 'discarded' as const } : c,
+          ),
+        })),
+
       // UI
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSelectedProjectId: (id) => set({ selectedProjectId: id }),
       setSelectedEmailId: (id) => set({ selectedEmailId: id }),
+      setSelectedSampleOrderId: (id) => set({ selectedSampleOrderId: id }),
 
       // Lookup a product by Trinity name, SKU, any private-label name/brand/SKU, tag, or category
       lookupProductByAnyName: (query) => {
@@ -382,7 +411,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sales-hub-store',
-      version: 9,
+      version: 10,
       // Migrate persisted state across schema versions.
       //   v1 → v2: 'Quoted' → 'Bidding' status rename
       //   v2 → v3: backfill new opportunity-shaped fields on projects;
@@ -409,6 +438,13 @@ export const useAppStore = create<AppState>()(
       //            (yesterday + today + 5 days ahead including a Wed
       //            lunch & learn at Greer Architecture with food pending).
       //            Append-only.
+      //   v9 → v10: extra seed projects with May 2026 closing/invoiced
+      //            dates so the Dashboard's Sales Created + Invoiced
+      //            cards show plausible activity (pr39–pr44). The v6→v7
+      //            project-append loop below picks them up automatically.
+      //            Also strips product slides from built-in template
+      //            presentations (per user feedback: presentations should
+      //            only reference brochures). User-created decks untouched.
       migrate: (persisted: any, _version) => {
         if (!persisted) return persisted;
 
@@ -560,6 +596,29 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // v9 → v10: strip product slides from built-in template
+        // presentations only (id starts with 'pres-template-'). User-
+        // created decks may still contain product slides — they keep
+        // working since the SlideRenderer's product branch is intact;
+        // only the editor's "add slide" menu hides the option for new.
+        if (Array.isArray(persisted.presentations)) {
+          persisted.presentations = persisted.presentations.map((p: any) => {
+            if (!p?.id || typeof p.id !== 'string' || !p.id.startsWith('pres-template-')) return p;
+            if (!Array.isArray(p.slides)) return p;
+            return {
+              ...p,
+              slides: p.slides.filter((s: any) => s?.type !== 'product'),
+            };
+          });
+        }
+
+        // v9 → v10: also initialize the opportunityCandidates array if it
+        // doesn't exist yet. Empty by default — populated when the rep
+        // tags a sample order as "future opportunity".
+        if (!Array.isArray(persisted.opportunityCandidates)) {
+          persisted.opportunityCandidates = [];
+        }
+
         return persisted;
       },
       // Don't persist file objects (objectURLs) — only metadata persists
@@ -583,6 +642,7 @@ export const useAppStore = create<AppState>()(
         quotes: state.quotes,
         presentations: state.presentations,
         appointments: state.appointments,
+        opportunityCandidates: state.opportunityCandidates,
         settings: state.settings,
         currentRepId: state.currentRepId,
       }),

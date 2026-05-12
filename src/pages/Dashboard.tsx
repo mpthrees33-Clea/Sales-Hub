@@ -10,6 +10,7 @@ import type { AppSettings, AppointmentChecklist } from '../types';
 import { maybeGenerateMondayDigest } from '../lib/dormantDigest';
 import LookingAhead from '../components/dashboard/LookingAhead';
 import DailyRecap from '../components/dashboard/DailyRecap';
+import OpportunitiesInReview from '../components/dashboard/OpportunitiesInReview';
 
 function StatCard({ label, value, icon: Icon, hint }: {
   label: string; value: string | number; icon: React.ElementType; hint?: string;
@@ -47,7 +48,9 @@ const ORDER_STATUS_PILL: Record<string, string> = {
 };
 
 function fmt(n: number) {
-  return n >= 1000 ? `$${(n / 1000).toFixed(0)}k` : `$${n}`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1000) return `$${(n / 1000).toFixed(0)}k`;
+  return `$${n}`;
 }
 
 // Inclusive: returns true if iso date string falls within [start, end]
@@ -288,6 +291,11 @@ export default function Dashboard() {
     navigate('/crm');
   }
 
+  function openSampleOrder(id: string) {
+    useAppStore.getState().setSelectedSampleOrderId(id);
+    navigate('/samples');
+  }
+
   function handleTogglePacked(id: string, key: keyof AppointmentChecklist, value: AppointmentChecklist[keyof AppointmentChecklist]) {
     const apt = appointments.find((a) => a.id === id);
     if (!apt) return;
@@ -311,6 +319,15 @@ export default function Dashboard() {
           <span className="text-sm font-medium">Edit budget targets</span>
         </button>
       </div>
+
+      {/* Opportunities in Review — pending candidates from "future opportunity"
+          flow on the Samples page. Hides when there are none. */}
+      <OpportunitiesInReview
+        onJumpToSamples={(sampleOrderId) => {
+          useAppStore.getState().setSelectedSampleOrderId(sampleOrderId);
+          navigate('/samples');
+        }}
+      />
 
       {/* Daily Recap + Looking Ahead — the rep's "what's happening today
           and tomorrow" headline. Stacks on mobile, side-by-side on lg+. */}
@@ -440,10 +457,16 @@ export default function Dashboard() {
             <Package size={16} className="text-fg-faint" />
           </div>
           <div className="divide-y divide-divider">
-            {sampleOrders.slice(0, 5).map((o) => {
+            {[...sampleOrders]
+              .sort((a, b) => b.orderedDate.localeCompare(a.orderedDate))
+              .slice(0, 5).map((o) => {
               const customer = customers.find((c) => c.id === o.customerId);
               return (
-                <div key={o.id} className="px-5 py-3.5 hover:bg-surface-1 transition-colors">
+                <button
+                  key={o.id}
+                  onClick={() => openSampleOrder(o.id)}
+                  className="w-full text-left px-5 py-3.5 hover:bg-surface-1 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium text-fg text-sm truncate">{customer?.company ?? '—'}</p>
                     <span className={clsx('text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0', ORDER_STATUS_PILL[o.status] ?? 'bg-surface-2 text-fg-muted border border-divider')}>
@@ -451,7 +474,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <p className="text-xs text-fg-muted mt-1">{o.items.length} item(s) · {o.orderedDate}</p>
-                </div>
+                </button>
               );
             })}
             {sampleOrders.length === 0 && (

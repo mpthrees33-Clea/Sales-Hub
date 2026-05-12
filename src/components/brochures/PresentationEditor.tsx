@@ -198,7 +198,6 @@ export default function PresentationEditor({ presentation, onClose, onPresent }:
               {addMenuOpen && (
                 <div className="absolute z-10 left-3 right-3 mt-1 bg-surface border border-divider rounded-lg shadow-lg overflow-hidden">
                   <AddMenuItem icon={FileText} label="Brochure slide" onClick={() => addSlide('brochure')} />
-                  <AddMenuItem icon={Package} label="Product spotlight" onClick={() => addSlide('product')} />
                   <AddMenuItem icon={Sparkles} label="Section title" onClick={() => addSlide('title')} />
                 </div>
               )}

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Search, Plus, Minus, X as XIcon, ChevronDown } from 'lucide-react';
-import type { SampleOrderItem, SampleOrderStatus } from '../types';
+import { Search, Plus, Minus, X as XIcon, ChevronDown, Sparkles } from 'lucide-react';
+import type { NewOpportunityCandidate, SampleOrderItem, SampleOrderStatus } from '../types';
 
 const STATUS_COLORS: Record<SampleOrderStatus, string> = {
   Pending:    'bg-warning/15 text-warning',
@@ -10,11 +10,23 @@ const STATUS_COLORS: Record<SampleOrderStatus, string> = {
   Delivered:  'bg-success/15 text-success',
 };
 
+// Special sentinel value for the "+ Add to future opportunity" select option.
+// When projectId === FUTURE_OPP_SENTINEL we render the proposed-name input
+// and create a NewOpportunityCandidate on submit instead of using a real
+// project id.
+const FUTURE_OPP_SENTINEL = '__future_opportunity__';
+
 function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
-  const { customers, projects, products, addSampleOrder, lookupProductByAnyName } = useAppStore();
-  const [step, setStep] = useState(1);
+  const customers = useAppStore((s) => s.customers);
+  const projects = useAppStore((s) => s.projects);
+  const products = useAppStore((s) => s.products);
+  const addSampleOrder = useAppStore((s) => s.addSampleOrder);
+  const addOpportunityCandidate = useAppStore((s) => s.addOpportunityCandidate);
+  const currentRepId = useAppStore((s) => s.currentRepId);
+
   const [customerId, setCustomerId] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [futureOppName, setFutureOppName] = useState('');
   const [items, setItems] = useState<SampleOrderItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [shipName, setShipName] = useState('');
@@ -22,6 +34,8 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
   const [shipCity, setShipCity] = useState('');
   const [shipState, setShipState] = useState('GA');
   const [shipZip, setShipZip] = useState('');
+
+  const isFutureOpp = projectId === FUTURE_OPP_SENTINEL;
 
   const customer = customers.find((c) => c.id === customerId);
   const custProjects = projects.filter((p) => p.customerId === customerId);
@@ -54,14 +68,41 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
   function removeItem(productId: string) { setItems((prev) => prev.filter((i) => i.productId !== productId)); }
 
   function submit() {
-    if (!customerId || !projectId || items.length === 0) return;
-    addSampleOrder({
-      id: `so-${Date.now()}`,
-      customerId, projectId, items, status: 'Pending',
-      orderedDate: new Date().toISOString().slice(0, 10),
-      shippingName: shipName, shippingAddress: shipAddr,
-      shippingCity: shipCity, shippingState: shipState, shippingZip: shipZip,
-    });
+    if (!customerId || items.length === 0) return;
+    if (isFutureOpp && !futureOppName.trim()) return;
+    if (!isFutureOpp && !projectId) return;
+
+    const orderId = `so-${Date.now()}`;
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (isFutureOpp) {
+      // Create the candidate first so the sample order can back-link to it.
+      const candidate: NewOpportunityCandidate = {
+        id: `cand-${Date.now()}`,
+        proposedName: futureOppName.trim(),
+        customerId,
+        repId: currentRepId,
+        createdDate: today,
+        status: 'pending',
+        sourceSampleOrderId: orderId,
+      };
+      addOpportunityCandidate(candidate);
+      addSampleOrder({
+        id: orderId,
+        customerId, candidateId: candidate.id, items, status: 'Pending',
+        orderedDate: today,
+        shippingName: shipName, shippingAddress: shipAddr,
+        shippingCity: shipCity, shippingState: shipState, shippingZip: shipZip,
+      });
+    } else {
+      addSampleOrder({
+        id: orderId,
+        customerId, projectId, items, status: 'Pending',
+        orderedDate: today,
+        shippingName: shipName, shippingAddress: shipAddr,
+        shippingCity: shipCity, shippingState: shipState, shippingZip: shipZip,
+      });
+    }
     onSubmit();
   }
 
@@ -94,8 +135,31 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
         <select className="w-full text-sm border border-divider rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
           value={projectId} onChange={(e) => setProjectId(e.target.value)} disabled={!customerId}>
           <option value="">Select project…</option>
-          {custProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          <option value={FUTURE_OPP_SENTINEL}>+ Add to future opportunity</option>
+          {custProjects.length > 0 && (
+            <optgroup label="Existing projects">
+              {custProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </optgroup>
+          )}
         </select>
+        {isFutureOpp && (
+          <div className="mt-2 bg-accent/5 border border-accent/30 rounded-lg p-3">
+            <p className="text-xs text-accent-light font-medium flex items-center gap-1 mb-2">
+              <Sparkles size={11} /> Future opportunity — pending review
+            </p>
+            <input
+              className="w-full text-sm border border-divider rounded-lg px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="Proposed project name (e.g. Vinings Tower spec)"
+              value={futureOppName}
+              onChange={(e) => setFutureOppName(e.target.value)}
+              autoFocus
+            />
+            <p className="text-xs text-fg-muted mt-1.5 leading-relaxed">
+              We'll log this as a candidate. The "Opportunities in Review" widget on your dashboard lets you
+              promote it to a real project later, or discard it if the lead fizzles.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Step 3 — Products */}
@@ -151,7 +215,12 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
       </div>
 
       <button onClick={submit}
-        disabled={!customerId || !projectId || items.length === 0}
+        disabled={
+          !customerId
+          || items.length === 0
+          || (!isFutureOpp && !projectId)
+          || (isFutureOpp && !futureOppName.trim())
+        }
         className="w-full py-2 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent-dim disabled:opacity-40 disabled:cursor-not-allowed">
         Submit Order
       </button>
@@ -160,10 +229,25 @@ function NewOrderForm({ onSubmit }: { onSubmit: () => void }) {
 }
 
 export default function SamplesPage() {
-  const { sampleOrders, customers, updateSampleOrder } = useAppStore();
+  const sampleOrders = useAppStore((s) => s.sampleOrders);
+  const customers = useAppStore((s) => s.customers);
+  const projects = useAppStore((s) => s.projects);
+  const opportunityCandidates = useAppStore((s) => s.opportunityCandidates);
+  const updateSampleOrder = useAppStore((s) => s.updateSampleOrder);
+  const selectedSampleOrderId = useAppStore((s) => s.selectedSampleOrderId);
+  const setSelectedSampleOrderId = useAppStore((s) => s.setSelectedSampleOrderId);
   const [filter, setFilter] = useState<SampleOrderStatus | 'All'>('All');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Honor cross-page navigation from the Dashboard — when the rep clicks
+  // a Recent Sample tile, this page mounts with selectedSampleOrderId set
+  // and we auto-expand that row.
+  useEffect(() => {
+    if (!selectedSampleOrderId) return;
+    setExpanded(selectedSampleOrderId);
+    setSelectedSampleOrderId(null);
+  }, [selectedSampleOrderId, setSelectedSampleOrderId]);
 
   function handleSubmit() { setSuccess(true); setTimeout(() => setSuccess(false), 3000); }
 
@@ -197,6 +281,8 @@ export default function SamplesPage() {
         <div className="space-y-2">
           {filtered.map((order) => {
             const customer = customers.find((c) => c.id === order.customerId);
+            const project = order.projectId ? projects.find((p) => p.id === order.projectId) : undefined;
+            const candidate = order.candidateId ? opportunityCandidates.find((c) => c.id === order.candidateId) : undefined;
             const isExpanded = expanded === order.id;
             return (
               <div key={order.id} className="bg-surface rounded-lg border border-divider overflow-hidden">
@@ -204,7 +290,12 @@ export default function SamplesPage() {
                   onClick={() => setExpanded(isExpanded ? null : order.id)}>
                   <ChevronDown size={14} className={`text-fg-faint transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-fg">{customer?.company ?? '—'}</p>
+                    <p className="font-medium text-sm text-fg truncate">{customer?.company ?? '—'}</p>
+                    <p className="text-xs text-fg-muted truncate">
+                      {project?.name ?? (candidate
+                        ? <><Sparkles size={10} className="inline -mt-0.5 mr-0.5 text-accent-light" />{candidate.proposedName} <span className="text-fg-faint italic">(pending review)</span></>
+                        : <span className="italic text-fg-faint">no project</span>)}
+                    </p>
                     <p className="text-xs text-fg-faint">{order.orderedDate} · {order.items.length} item(s)</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[order.status]}`}>{order.status}</span>

@@ -286,7 +286,12 @@ export interface SampleOrderItem {
 export interface SampleOrder {
   id: string;
   customerId: string;
-  projectId: string;
+  // Project link is optional — a sample order can be tied to a real Project
+  // OR to a NewOpportunityCandidate while the rep decides whether to add
+  // the opportunity to CRM. Exactly one of the two should be set in
+  // practice (the page enforces this).
+  projectId?: string;
+  candidateId?: string;
   items: SampleOrderItem[];
   status: SampleOrderStatus;
   orderedDate: string;
@@ -297,6 +302,22 @@ export interface SampleOrder {
   shippingZip: string;
   notes?: string;
   trackingNumber?: string;
+}
+
+// New-opportunity candidate. Created when the rep ships samples or talks to
+// a customer about an opportunity that isn't worth committing to CRM yet
+// (could fizzle). Lives in the "Opportunities in Review" widget until the
+// rep either promotes it into a real Project or discards it.
+export interface NewOpportunityCandidate {
+  id: string;
+  proposedName: string;
+  customerId: string;
+  repId: string;
+  createdDate: string;
+  status: 'pending' | 'promoted' | 'discarded';
+  notes?: string;
+  promotedProjectId?: string;     // set when promoted to a real Project
+  sourceSampleOrderId?: string;   // back-link to the sample order that spawned it
 }
 
 export interface EmailMessage {

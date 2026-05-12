@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { FileText, BookOpen, Plus, Search, Copy, Edit2, Trash2, Presentation as PresentationIcon, Play } from 'lucide-react';
+// Trash2 is still used by Catalog + Presentation cards (catalogs and
+// presentations remain deletable). Brochures themselves are read-only.
 import type { Brochure, Catalog, Presentation } from '../types';
 import UploadModal, { getFile } from '../components/brochures/UploadModal';
 import CatalogModal from '../components/brochures/CatalogModal';
@@ -20,7 +22,9 @@ const CAT_COLORS: Record<string, string> = {
   Other:                  'bg-surface-1 text-fg-muted',
 };
 
-function BrochureCard({ brochure, onDelete }: { brochure: Brochure; onDelete: () => void }) {
+// Brochures are reference assets — reps view, attach, and present them but
+// don't delete them (they're shared across the org's catalog system).
+function BrochureCard({ brochure }: { brochure: Brochure }) {
   const fileUrl = brochure.hasFile ? getFile(brochure.id) : undefined;
   return (
     <div className="bg-surface rounded-lg border border-divider p-4 flex gap-3 group relative">
@@ -30,15 +34,10 @@ function BrochureCard({ brochure, onDelete }: { brochure: Brochure; onDelete: ()
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <p className="font-medium text-fg text-sm leading-tight">{brochure.name}</p>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            {fileUrl && (
-              <a href={fileUrl} target="_blank" rel="noreferrer"
-                className="text-xs px-2 py-0.5 text-accent-light border border-accent/30 rounded hover:bg-accent/10">View</a>
-            )}
-            <button onClick={onDelete} className="p-1 text-danger/70 hover:text-danger rounded hover:bg-danger/10">
-              <Trash2 size={13} />
-            </button>
-          </div>
+          {fileUrl && (
+            <a href={fileUrl} target="_blank" rel="noreferrer"
+              className="text-xs px-2 py-0.5 text-accent-light border border-accent/30 rounded hover:bg-accent/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">View</a>
+          )}
         </div>
         <p className="text-xs text-fg-muted">{brochure.brand} · {brochure.category}</p>
         {brochure.pageCount && <p className="text-xs text-fg-faint">{brochure.pageCount} pages</p>}
@@ -95,7 +94,7 @@ function CatalogCard({ catalog, brochures, onClone, onEdit, onDelete }: {
 }
 
 export default function BrochuresPage() {
-  const { brochures, catalogs, deleteBrochure, deleteCatalog, addCatalog,
+  const { brochures, catalogs, deleteCatalog, addCatalog,
           presentations, deletePresentation, addPresentation } = useAppStore();
   const [tab, setTab] = useState<'brochures' | 'catalogs' | 'presentations'>('brochures');
   const [search, setSearch] = useState('');
@@ -179,8 +178,7 @@ export default function BrochuresPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map((b) => (
-              <BrochureCard key={b.id} brochure={b}
-                onDelete={() => { if (confirm(`Delete brochure "${b.name}"?`)) deleteBrochure(b.id); }} />
+              <BrochureCard key={b.id} brochure={b} />
             ))}
           </div>
         </>

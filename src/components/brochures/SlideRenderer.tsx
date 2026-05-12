@@ -135,7 +135,7 @@ export default function SlideRenderer({
                         {p.trinityName}
                       </p>
                       <p className={clsx('text-fg-muted', isPresent ? 'text-sm' : 'text-xs')}>
-                        {p.category} · ${p.listPrice}/{p.unit}
+                        {p.category}
                       </p>
                     </div>
                   ))}
@@ -206,15 +206,8 @@ export default function SlideRenderer({
                 </p>
               </div>
             )}
-
-            <div className="mt-4 flex items-baseline gap-3">
-              <span className={clsx('font-semibold text-accent-light', isPresent ? 'text-3xl' : 'text-base')}>
-                ${product.listPrice}
-              </span>
-              <span className={clsx('text-fg-muted', isPresent ? 'text-base' : 'text-xs')}>
-                /{product.unit} list
-              </span>
-            </div>
+            {/* No price on presentation slides — reps quote budget numbers
+                in the room, not list prices. */}
           </div>
         </div>
       </div>
