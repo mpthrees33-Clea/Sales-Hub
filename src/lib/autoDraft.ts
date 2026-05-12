@@ -1,12 +1,15 @@
 import { useAppStore } from '../store/useAppStore';
 import type {
   EmailDraft, EmailMessage, MissingFieldAsk, EmailIntent, Project, ProjectExtensions,
+  Quote,
 } from '../types';
 import { emails, drafts, threads } from '../services/email';
 import { reps } from '../services/reps';
 import { projects, suggestCustomerFromEmail } from '../services/projects';
 import { activities } from '../services/activities';
+import { quotes } from '../services/quotes';
 import { buildDraftScaffold } from './emailAI';
+import { buildQuote } from './pricing';
 
 // Auto-draft orchestrator. Bridges the LLM pipeline in emailAI.ts with the
 // service layer. One entry point — generateDraftForEmail — that:
@@ -99,8 +102,33 @@ async function generate(email: EmailMessage, opts: GenerateOptions): Promise<Ema
 
   const now = new Date().toISOString();
   const draftId = newId('drft');
+  // Project-level missing fields — computed from the matched project record.
+  // Per the user spec, a quote cannot ship without: project_name, architectural
+  // firm, GC (if awarded), developer, end user (sometimes), job location.
+  const projectMissing: MissingFieldAsk[] = scaffold.intent === 'pricing_request'
+    ? buildProjectLevelMissingFields(match)
+    : [];
 
-  const newProjectCandidate = needsProjectLink ? buildNewProjectCandidate(email) : undefined;
+  // Merge LLM/fallback material-level asks with project-level asks.
+  const allMissingAsks: MissingFieldAsk[] = [
+    ...projectMissing,
+    ...(scaffold.missingFieldAsks ?? []),
+  ];
+
+  // Pricing engine — build a Quote scaffold for pricing requests.
+  let quote: Quote | undefined;
+  if (scaffold.intent === 'pricing_request' && scaffold.lineItemRequests?.length) {
+    const result = buildQuote({
+      repId: rep.id,
+      projectId: match?.id,
+      customerId: senderCustomer?.id,
+      requests: scaffold.lineItemRequests,
+      products: state.products,
+      priceEntries: state.priceEntries,
+    });
+    quote = result.quote;
+    quotes.add(quote);
+  }
 
   const draft: EmailDraft = {
     id: draftId,
@@ -115,7 +143,8 @@ async function generate(email: EmailMessage, opts: GenerateOptions): Promise<Ema
     intent: scaffold.intent,
     matchedProjectId: match?.id,
     matchedCustomerId: senderCustomer?.id,
-    missingFieldAsks: [] as MissingFieldAsk[],   // populated in part 2 (quote-gating)
+    quoteId: quote?.id,
+    missingFieldAsks: allMissingAsks,
     isAutoDrafted: true,
     isEdited: false,
     status: needsProjectLink ? 'pending' : 'ready',
@@ -130,12 +159,6 @@ async function generate(email: EmailMessage, opts: GenerateOptions): Promise<Ema
 
   drafts.add(draft);
 
-  // Tag the source email with the linkage so UI lookups are O(1).
-  emails.update(email.id, {
-    // Existing EmailMessage shape doesn't have draftId; we use updateEmail
-    // for the side effect of refreshing the inbox row.
-  });
-
   // Log activity if we linked to a project.
   if (match) {
     activities.log({
@@ -148,17 +171,38 @@ async function generate(email: EmailMessage, opts: GenerateOptions): Promise<Ema
     });
   }
 
-  // Stash the new-project candidate on the source email for the prompt UI.
-  if (newProjectCandidate) {
-    emails.update(email.id, {
-      // EmailMessage doesn't carry candidate fields in the original schema —
-      // this no-op exists so the UI can read state on refresh; the actual
-      // candidate computation runs whenever the prompt mounts. Keeping the
-      // field optional means we don't need a schema migration for it.
-    });
+  return draft;
+}
+
+// Project-level missing-field detection. For pricing requests, the project
+// must have a name + architectural firm + GC (if awarded) + developer +
+// end user (when applicable) + job location before the quote is allowed
+// to ship. Anything blank shows up as a [PLACEHOLDER] + body ask.
+function buildProjectLevelMissingFields(match: ExtendedProject | undefined): MissingFieldAsk[] {
+  const out: MissingFieldAsk[] = [];
+
+  if (!match) {
+    out.push({ field: 'project_name', contextLabel: 'project name' });
+    out.push({ field: 'architectural_firm', contextLabel: 'specifying architectural firm' });
+    out.push({ field: 'gc', contextLabel: 'general contractor (if awarded)' });
+    out.push({ field: 'developer', contextLabel: 'developer' });
+    out.push({ field: 'job_location', contextLabel: 'job location' });
+    return out;
   }
 
-  return draft;
+  if (!match.architecturalFirmId) {
+    out.push({ field: 'architectural_firm', contextLabel: 'specifying architectural firm' });
+  }
+  if (!match.gcCustomerId) {
+    out.push({ field: 'gc', contextLabel: 'general contractor (if awarded)' });
+  }
+  if (!match.developerCustomerId) {
+    out.push({ field: 'developer', contextLabel: 'developer' });
+  }
+  if (!match.jobLocation) {
+    out.push({ field: 'job_location', contextLabel: 'job location' });
+  }
+  return out;
 }
 
 function buildNewProjectCandidate(email: EmailMessage): {

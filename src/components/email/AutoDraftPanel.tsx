@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Sparkles, Send, RefreshCw, Edit3, X, Paperclip, Loader2 } from 'lucide-react';
+import { Sparkles, Send, RefreshCw, Edit3, X, Paperclip, Loader2, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../../store/useAppStore';
 import type { EmailDraft } from '../../types';
 import { drafts as draftsService } from '../../services/email';
+import QuoteTable from './QuoteTable';
 
 // Renders the auto-drafted reply for the currently selected email. Three
 // states: no-draft-yet (shows "Generate" button), generating (shows spinner),
@@ -33,6 +34,7 @@ export default function AutoDraftPanel({
   onDiscard,
 }: Props) {
   const brochures = useAppStore((s) => s.brochures);
+  const quote = useAppStore((s) => draft?.quoteId ? s.quotes.find((q) => q.id === draft.quoteId) : undefined);
   const [editing, setEditing] = useState(false);
   const [bodyDraft, setBodyDraft] = useState('');
   const [subjectDraft, setSubjectDraft] = useState('');
@@ -134,8 +136,31 @@ export default function AutoDraftPanel({
         </div>
       </div>
 
+      {/* Missing-fields summary — visible chip strip when quote-gating fires */}
+      {draft.missingFieldAsks.length > 0 && (
+        <div className="px-4 py-2 bg-warning/5 border-b border-warning/20">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={14} className="text-warning shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-fg">Missing info for a complete quote:</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {draft.missingFieldAsks.map((ask, i) => (
+                  <span
+                    key={`${ask.field}-${i}`}
+                    className="text-xs bg-warning/15 text-warning border border-warning/30 rounded px-1.5 py-0.5"
+                    title={ask.hint}
+                  >
+                    {ask.contextLabel}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Body */}
-      <div className="px-4 py-3 space-y-2">
+      <div className="px-4 py-3 space-y-3">
         {editing ? (
           <>
             <input
@@ -156,6 +181,11 @@ export default function AutoDraftPanel({
             <p className="text-sm font-medium text-fg">{draft.subject}</p>
             <pre className="text-sm text-fg whitespace-pre-wrap font-sans leading-relaxed">{draft.body}</pre>
           </>
+        )}
+
+        {/* Quote table (pricing requests) */}
+        {quote && (
+          <QuoteTable quote={quote} readOnly={draft.status === 'sent'} />
         )}
 
         {/* Attachments */}

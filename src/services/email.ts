@@ -2,6 +2,7 @@ import { useAppStore } from '../store/useAppStore';
 import type {
   EmailMessage, EmailThread, EmailDraft,
 } from '../types';
+import { quotes as quotesService } from './quotes';
 
 // Email service. Wraps emails, threads, and auto-generated reply drafts. The
 // email AI pipeline lives in src/lib/emailAI.ts; this module owns persistence.
@@ -107,6 +108,13 @@ export const drafts = {
   // Materialize a draft as a real outgoing email and mark it sent. In demo
   // mode this just moves the draft into the sent folder as an EmailMessage;
   // when the Gmail API integration lands, this is where the send call goes.
+  //
+  // Side effects on send:
+  //   1. EmailMessage appears in sent folder
+  //   2. Draft marked sent
+  //   3. If the draft has an attached Quote, that Quote is marked sent —
+  //      which auto-adds the recipient customer as a Bidder on the project
+  //      and logs a quote_sent Activity (see services/quotes.ts).
   send(id: string): EmailMessage | undefined {
     const draft = drafts.get(id);
     if (!draft) return undefined;
@@ -129,6 +137,11 @@ export const drafts = {
     };
     emails.add(sent);
     drafts.update(id, { status: 'sent', sentAt: sent.date });
+
+    // Bidder + activity auto-add for sent quotes.
+    if (draft.quoteId) {
+      quotesService.markSent(draft.quoteId);
+    }
     return sent;
   },
 };

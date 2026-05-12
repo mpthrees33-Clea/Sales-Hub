@@ -1,7 +1,9 @@
 import type {
   EmailMessage, EmailIntent, EmailDraft, Brochure,
   Project, ProjectExtensions, Customer, Rep, Product,
+  MissingFieldAsk, QuoteMissingField,
 } from '../types';
+import type { LineItemRequest } from './pricing';
 
 // Email AI pipeline. Takes a received email + the rep's context and produces
 // an auto-drafted reply. Uses Gemini when configured; falls back to a
@@ -36,6 +38,12 @@ export interface DraftGenerationResult {
   body: string;
   attachBrochureIds: string[];
   reasoning?: string;
+  // Populated only for pricing_request intent. Orchestrator runs these
+  // through the pricing engine to build the quote scaffold.
+  lineItemRequests?: LineItemRequest[];
+  // Material-level missing fields. Project-level asks are computed in the
+  // orchestrator (it knows which project fields are filled).
+  missingFieldAsks?: MissingFieldAsk[];
 }
 
 // ── Deterministic intent classifier (fallback + pre-LLM signal) ──
@@ -253,13 +261,26 @@ You will receive: the incoming email, project context (if matched), and a brochu
  "subject": "Re: ...",
  "body": "Hi X,\\n\\n...",
  "attachBrochureIds": ["b1"],
+ "lineItemRequests": [{"productName": "BlueSky SPC", "size": "9x60", "color": null, "finish": "embossed", "quantity": 8200, "unit": "sq ft"}],
+ "missingFieldAsks": [{"field": "color", "contextLabel": "color for BlueSky SPC", "hint": "..."}],
  "reasoning": "one line"}
 
 Rules:
 - Subject: "Re: <original subject>" unless it already starts with Re:, then keep as-is.
 - Body: real, sendable text. No placeholders, no bracketed instructions to the reader, no headers like "Body:".
 - attachBrochureIds: pick from the catalog below. Empty array if no attachment is warranted. Max 3.
-- For pricing requests, DO NOT include a quote table — just confirm receipt and commit to send a formal quote.
+
+For pricing_request specifically:
+- Extract every line item the customer is asking about into lineItemRequests. Use the Trinity name when you can map the requested brand/product to one. Fill in size, color, finish, quantity (and unit — "sq ft", "sq yd", "carton", "each") when stated. Use null for any field the email doesn't specify — DO NOT guess.
+- For missingFieldAsks: list every field you still need to write a formal quote. field is one of: project_name, architectural_firm, gc, developer, end_user, job_location, product, size, color, finish, quantity. contextLabel is human-readable (e.g. "color for BlueSky SPC"). hint can quote what the customer said to give the rep context.
+- Body should:
+    * Confirm receipt and acknowledge the project.
+    * If missingFieldAsks is non-empty, list the missing items naturally as a single sentence ("I just need X, Y, and Z to put this together").
+    * Promise the formal quote follows (it will be auto-attached by the system).
+    * NOT include any pricing numbers — the quote table is generated separately.
+
+For non-pricing intents:
+- lineItemRequests and missingFieldAsks should be [] or omitted.
 - For spec sheet requests, attach the matching brochures from the catalog.
 - For new leads, attach 1–2 overview brochures.
 - For order questions, no attachments.`;
@@ -308,13 +329,78 @@ function parseLLMJSON(raw: string, ctx: DraftGenerationContext): DraftGeneration
     : [];
   const attachBrochureIds: string[] = llmIds.slice(0, 3);
 
+  const lineItemRequests = parseLineItemRequests(parsed.lineItemRequests);
+  const missingFieldAsks = parseMissingFieldAsks(parsed.missingFieldAsks);
+
   return {
     intent,
     subject,
     body,
     attachBrochureIds,
     reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : undefined,
+    lineItemRequests: lineItemRequests.length ? lineItemRequests : undefined,
+    missingFieldAsks: missingFieldAsks.length ? missingFieldAsks : undefined,
   };
+}
+
+function parseLineItemRequests(raw: unknown): LineItemRequest[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LineItemRequest[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') continue;
+    const productName = typeof (r as any).productName === 'string' ? (r as any).productName.trim() : '';
+    if (!productName) continue;
+    out.push({
+      productName,
+      size: stringOrUndef((r as any).size),
+      color: stringOrUndef((r as any).color),
+      finish: stringOrUndef((r as any).finish),
+      quantity: numberOrUndef((r as any).quantity),
+      unit: stringOrUndef((r as any).unit),
+    });
+  }
+  return out;
+}
+
+const ALLOWED_MISSING_FIELDS = new Set<QuoteMissingField>([
+  'project_name', 'architectural_firm', 'gc', 'developer', 'end_user',
+  'job_location', 'product', 'size', 'color', 'finish', 'quantity',
+]);
+
+function parseMissingFieldAsks(raw: unknown): MissingFieldAsk[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MissingFieldAsk[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') continue;
+    const field = (r as any).field;
+    if (!ALLOWED_MISSING_FIELDS.has(field)) continue;
+    const contextLabel = typeof (r as any).contextLabel === 'string'
+      ? (r as any).contextLabel.trim()
+      : field.replace(/_/g, ' ');
+    out.push({
+      field,
+      contextLabel,
+      hint: stringOrUndef((r as any).hint),
+    });
+  }
+  return out;
+}
+
+function stringOrUndef(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim();
+  if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'tbd' || s.toLowerCase() === 'unknown') return undefined;
+  return s;
+}
+
+function numberOrUndef(v: unknown): number | undefined {
+  if (typeof v === 'number' && isFinite(v) && v > 0) return v;
+  if (typeof v === 'string') {
+    const cleaned = v.replace(/[,\s]/g, '');
+    const n = parseFloat(cleaned);
+    if (isFinite(n) && n > 0) return n;
+  }
+  return undefined;
 }
 
 const ALLOWED_INTENTS = new Set<EmailIntent>([
@@ -322,6 +408,91 @@ const ALLOWED_INTENTS = new Set<EmailIntent>([
   'scheduling', 'new_lead', 'follow_up', 'dormant_reply',
   'sample_request', 'order_question', 'other',
 ]);
+
+// ── Deterministic line-item + missing-field extractor (fallback) ──
+
+// Regex-based extractor for pricing_request emails. Used when Gemini isn't
+// configured. Best-effort — pulls qty/size/finish from the full email,
+// matches against known product names. The pricing engine handles whatever
+// is unknown via [PLACEHOLDER] markers.
+export function extractLineItemsLocally(
+  email: EmailMessage,
+  products: Product[],
+): LineItemRequest[] {
+  const haystack = `${email.subject} ${email.body}`;
+  const lower = haystack.toLowerCase();
+  const items: LineItemRequest[] = [];
+
+  const qtyMatch = haystack.match(/([\d,]+)\s*(sq\s*ft|sqft|square\s+feet|sq\s*yd|square\s+yards|sq\.\s*ft|units)/i);
+  const quantity = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : undefined;
+  const unit = qtyMatch
+    ? /sq\s*yd|square\s+yards/i.test(qtyMatch[2]) ? 'sq yd'
+    : /units/i.test(qtyMatch[2]) ? 'each'
+    : 'sq ft'
+    : undefined;
+
+  const sizeMatch = haystack.match(/(\d+(?:\.\d+)?)\s*["']?\s*x\s*(\d+(?:\.\d+)?)\s*["']?/);
+  const size = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : undefined;
+
+  const finishOptions = [
+    'embossed', 'polished', 'matte', 'satin',
+    'hand-scraped', 'wire-brushed', 'honed', 'distressed', 'lacquer',
+  ];
+  const finish = finishOptions.find((f) => lower.includes(f));
+
+  for (const product of products) {
+    const names = [
+      product.trinityName.toLowerCase(),
+      product.trinitySku.toLowerCase(),
+      ...product.privateLabels.map((pl) => pl.productName.toLowerCase()),
+    ];
+    if (names.some((n) => lower.includes(n))) {
+      items.push({
+        productName: product.trinityName,
+        productId: product.id,
+        size,
+        finish,
+        quantity,
+        unit: unit ?? product.unit,
+      });
+    }
+  }
+
+  // If the rep is asking about pricing but didn't name a product, emit a
+  // placeholder so the quote table still surfaces the missing-product field.
+  if (items.length === 0) {
+    items.push({ productName: 'Product TBD', size, finish, quantity, unit });
+  }
+
+  return items;
+}
+
+// Derive material-level missing-field asks from extracted line items.
+// Project-level asks (architect/GC/developer/etc.) are added by the
+// orchestrator based on the matched Project record.
+export function deriveMaterialMissingFields(
+  lineItemRequests: LineItemRequest[],
+): MissingFieldAsk[] {
+  const out: MissingFieldAsk[] = [];
+  for (const li of lineItemRequests) {
+    if (!li.productName || li.productName === 'Product TBD') {
+      out.push({ field: 'product', contextLabel: 'product (which Trinity line)', hint: 'Customer asked for pricing without naming a product.' });
+    }
+    if (!li.size) {
+      out.push({ field: 'size', contextLabel: `size${li.productName ? ' for ' + li.productName : ''}` });
+    }
+    if (!li.color) {
+      out.push({ field: 'color', contextLabel: `color${li.productName ? ' for ' + li.productName : ''}` });
+    }
+    if (!li.finish) {
+      out.push({ field: 'finish', contextLabel: `finish${li.productName ? ' for ' + li.productName : ''}` });
+    }
+    if (!li.quantity) {
+      out.push({ field: 'quantity', contextLabel: `qty${li.productName ? ' for ' + li.productName : ''}` });
+    }
+  }
+  return out;
+}
 
 // ── Top-level entrypoint ──
 // Call this with a received email + context; get back a fully-formed draft
@@ -356,5 +527,21 @@ export async function buildDraftScaffold(
     brochures: ctx.brochures,
     attachBrochureIds,
   });
-  return { intent, subject, body, attachBrochureIds, reasoning: 'deterministic fallback' };
+
+  let lineItemRequests: LineItemRequest[] | undefined;
+  let missingFieldAsks: MissingFieldAsk[] | undefined;
+  if (intent === 'pricing_request') {
+    lineItemRequests = extractLineItemsLocally(ctx.email, ctx.products);
+    missingFieldAsks = deriveMaterialMissingFields(lineItemRequests);
+  }
+
+  return {
+    intent,
+    subject,
+    body,
+    attachBrochureIds,
+    reasoning: 'deterministic fallback',
+    lineItemRequests,
+    missingFieldAsks,
+  };
 }

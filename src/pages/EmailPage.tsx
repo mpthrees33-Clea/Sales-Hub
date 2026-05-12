@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Star, Paperclip, Send, FileText, Search, Calculator, Zap } from 'lucide-react';
+import { Star, Paperclip, Send, FileText, Search, Calculator, Zap, ChevronLeft, Pencil } from 'lucide-react';
 import type { EmailMessage } from '../types';
 import clsx from 'clsx';
 import AutoDraftPanel from '../components/email/AutoDraftPanel';
@@ -236,32 +236,63 @@ export default function EmailPage() {
     draftsService.discard(draftId);
   }
 
+  // Mobile pane state — derived from selected/composing. On mobile, only one
+  // pane shows at a time. On desktop, all panes are visible side-by-side.
+  const mobileShowingReader = selected !== null || composing;
+
   return (
-    <div className="flex rounded-lg border border-divider bg-surface overflow-hidden" style={{ height: '75vh' }}>
-      {/* Folder nav */}
-      <div className="w-32 shrink-0 border-r border-divider flex flex-col py-2">
-        <button onClick={() => { setComposing(true); setReplyTo(undefined); setAttachedIds([]); }}
-          className="mx-2 mb-2 px-2 py-1.5 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent-dim">
-          + Compose
+    <div
+      className="flex flex-col md:flex-row rounded-lg border border-divider bg-surface overflow-hidden"
+      style={{ height: 'calc(100dvh - 7rem)' }}
+    >
+      {/* Folder nav — horizontal pills on mobile, vertical column on desktop.
+          Hidden on mobile while reading/composing so the reader gets full screen. */}
+      <div className={clsx(
+        'shrink-0 border-divider flex',
+        'md:w-32 md:flex-col md:py-2 md:border-r',
+        'flex-row gap-1 px-2 py-2 border-b overflow-x-auto md:overflow-x-visible',
+        mobileShowingReader && 'hidden md:flex',
+      )}>
+        <button
+          onClick={() => { setComposing(true); setSelected(null); setReplyTo(undefined); setAttachedIds([]); }}
+          className="shrink-0 px-3 md:px-2 py-1.5 md:mx-2 md:mb-2 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent-dim flex items-center gap-1"
+        >
+          <Pencil size={11} /> Compose
         </button>
         {FOLDERS.map(({ key, label }) => (
-          <button key={key} onClick={() => { setFolder(key); setSelected(null); setComposing(false); }}
-            className={clsx('flex justify-between items-center px-3 py-2 text-sm', folder === key ? 'bg-accent/10 text-accent-light font-medium' : 'text-fg-muted hover:bg-bg')}>
+          <button
+            key={key}
+            onClick={() => { setFolder(key); setSelected(null); setComposing(false); }}
+            className={clsx(
+              'shrink-0 flex items-center gap-1.5 px-3 md:px-3 py-1.5 md:py-2 text-sm rounded-lg md:rounded-none',
+              folder === key
+                ? 'bg-accent/10 text-accent-light font-medium'
+                : 'text-fg-muted hover:bg-bg',
+            )}
+          >
             <span>{label}</span>
             {unread(key) > 0 && <span className="text-xs bg-accent text-white rounded-full px-1.5">{unread(key)}</span>}
           </button>
         ))}
-        <div className="flex-1" />
-        <button onClick={() => setAiOpen((v) => !v)}
-          className="mx-2 mb-2 flex items-center gap-1 px-2 py-1.5 text-xs text-fg-muted border border-divider rounded-lg hover:bg-bg">
+        <div className="hidden md:block flex-1" />
+        <button
+          onClick={() => setAiOpen((v) => !v)}
+          className="hidden md:flex mx-2 mb-2 items-center gap-1 px-2 py-1.5 text-xs text-fg-muted border border-divider rounded-lg hover:bg-bg"
+        >
           <Zap size={11} className="text-accent-light" />
           {aiOpen ? 'Hide AI' : 'AI Tools'}
         </button>
       </div>
 
-      {/* Email list */}
-      <div className="w-60 shrink-0 border-r border-divider overflow-y-auto">
-        {folderEmails.map((email) => (
+      {/* Email list — full-width on mobile when not reading; 240px column on desktop. */}
+      <div className={clsx(
+        'border-divider overflow-y-auto',
+        'md:w-60 md:shrink-0 md:border-r md:block',
+        mobileShowingReader ? 'hidden md:block' : 'flex-1 md:flex-none',
+      )}>
+        {folderEmails.length === 0 ? (
+          <p className="px-3 py-6 text-xs text-fg-faint text-center">No emails in {folder}.</p>
+        ) : folderEmails.map((email) => (
           <button key={email.id} onClick={() => open(email)}
             className={clsx('w-full text-left px-3 py-3 border-b border-divider hover:bg-bg', selected?.id === email.id && 'bg-accent/10')}>
             <div className="flex items-center gap-1">
@@ -277,9 +308,23 @@ export default function EmailPage() {
         ))}
       </div>
 
-      {/* Read / Compose pane */}
-      <div className="flex-1 min-w-0 overflow-hidden flex">
+      {/* Read / Compose pane — full-width on mobile when active; hidden when not. */}
+      <div className={clsx(
+        'flex-1 min-w-0 overflow-hidden flex',
+        mobileShowingReader ? 'flex' : 'hidden md:flex',
+      )}>
         <div className="flex-1 overflow-y-auto">
+          {/* Mobile back row */}
+          {mobileShowingReader && (
+            <div className="md:hidden flex items-center px-3 py-2 border-b border-divider bg-surface-1">
+              <button
+                onClick={() => { setSelected(null); setComposing(false); setReplyTo(undefined); }}
+                className="flex items-center gap-1 text-sm text-fg-muted hover:text-fg"
+              >
+                <ChevronLeft size={16} /> Back to {folder}
+              </button>
+            </div>
+          )}
           {composing ? (
             <ComposePanel replyTo={replyTo} attachedIds={attachedIds} onSend={sendEmail} onDraft={saveDraft} />
           ) : selected ? (
@@ -337,8 +382,14 @@ export default function EmailPage() {
           )}
         </div>
 
-        {/* AI Tools */}
-        {aiOpen && <AIToolsPanel onAttach={(id) => setAttachedIds((prev) => prev.includes(id) ? prev : [...prev, id])} />}
+        {/* AI Tools — desktop only. On mobile the global voice button +
+            AutoDraftPanel cover the same functions (product lookup,
+            brochure attach, quick quote, templates). */}
+        {aiOpen && (
+          <div className="hidden md:block">
+            <AIToolsPanel onAttach={(id) => setAttachedIds((prev) => prev.includes(id) ? prev : [...prev, id])} />
+          </div>
+        )}
       </div>
     </div>
   );
