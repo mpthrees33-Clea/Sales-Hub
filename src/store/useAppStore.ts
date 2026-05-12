@@ -57,7 +57,8 @@ interface AppState {
   // UI
   sidebarOpen: boolean;
   selectedProjectId: string | null;
-  currentRepId: string;        // who am I right now (dev-mode switchable)
+  selectedEmailId: string | null;     // current email view (used by voice routing)
+  currentRepId: string;               // who am I right now (dev-mode switchable)
 
   // Actions — Products
   addProduct: (p: Product) => void;
@@ -130,6 +131,7 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSelectedProjectId: (id: string | null) => void;
+  setSelectedEmailId: (id: string | null) => void;
 
   // Utility
   lookupProductByAnyName: (query: string) => Product | undefined;
@@ -187,6 +189,7 @@ export const useAppStore = create<AppState>()(
       settings: DEFAULT_SETTINGS,
       sidebarOpen: true,
       selectedProjectId: null,
+      selectedEmailId: null,
       currentRepId: seedReps.find((r) => r.isCurrentUser)?.id ?? 'rep-sarah',
 
       // Products
@@ -288,6 +291,7 @@ export const useAppStore = create<AppState>()(
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+      setSelectedEmailId: (id) => set({ selectedEmailId: id }),
 
       // Lookup a product by Trinity name, SKU, any private-label name/brand/SKU, tag, or category
       lookupProductByAnyName: (query) => {

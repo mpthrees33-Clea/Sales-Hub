@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Mic, MicOff, Send, X, Bot, Volume2, VolumeX, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../../store/useAppStore';
 import { processMessage, type Message, type FlowState } from '../../lib/assistant';
 import { askLLM, isLLMConfigured } from '../../lib/llm';
 import { useSpeechInput, speak, stopSpeaking } from '../../hooks/useSpeech';
+import { tryPageVoiceCommand } from '../../lib/voiceCommands';
 
 // Global voice button. Floats bottom-right on every page. Tap to open a
 // slide-up sheet that talks to the same assistant engine as AssistantPage.
@@ -28,6 +30,7 @@ export default function VoiceButton() {
   const [tts, setTts]           = useState(true);
   const [thinking, setThinking] = useState(false);
   const store = useAppStore();
+  const location = useLocation();
   const bottomRef = useRef<HTMLDivElement>(null);
   const llmEnabled = isLLMConfigured();
 
@@ -37,6 +40,22 @@ export default function VoiceButton() {
       if (!text) return;
 
       const userMsg: Message = { id: `u${Date.now()}`, role: 'user', text, ts: Date.now() };
+
+      // 1. Page-aware commands (e.g. /email "send", "regenerate", "attach …
+      //    brochure") get first crack. If a page handler claims the input we
+      //    skip the default assistant entirely.
+      setMessages((prev) => [...prev, userMsg]);
+      setInput('');
+
+      const pageResponse = await tryPageVoiceCommand(text, { pathname: location.pathname });
+      if (pageResponse !== null) {
+        const botMsg: Message = { id: `b${Date.now()}`, role: 'assistant', text: pageResponse, ts: Date.now() };
+        setMessages((prev) => [...prev, botMsg]);
+        if (tts) speak(pageResponse);
+        return;
+      }
+
+      // 2. Default assistant flow (intents + Gemini fallback).
       const snap = {
         customers:    store.customers,
         products:     store.products,
@@ -44,10 +63,7 @@ export default function VoiceButton() {
         projects:     store.projects,
       };
       const result = processMessage(text, flow, snap);
-
-      setMessages((prev) => [...prev, userMsg]);
       setFlow(result.nextFlow);
-      setInput('');
 
       if (result.action) {
         if (result.action.type === 'add-project') {
@@ -96,7 +112,7 @@ export default function VoiceButton() {
       setMessages((prev) => [...prev, botMsg]);
       if (tts) speak(reply);
     },
-    [flow, store, tts, messages, llmEnabled],
+    [flow, store, tts, messages, llmEnabled, location.pathname],
   );
 
   const { listening, supported, start, stop } = useSpeechInput(handleText);

@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Star, Paperclip, ChevronRight, ChevronLeft, Send, FileText, Search, Calculator, Zap } from 'lucide-react';
+import { Star, Paperclip, Send, FileText, Search, Calculator, Zap } from 'lucide-react';
 import type { EmailMessage } from '../types';
 import clsx from 'clsx';
+import AutoDraftPanel from '../components/email/AutoDraftPanel';
+import NewProjectPrompt from '../components/email/NewProjectPrompt';
+import { drafts as draftsService } from '../services/email';
+import { generateDraftForEmail, regenerateDraft } from '../lib/autoDraft';
 
 type Folder = 'inbox' | 'sent' | 'drafts' | 'trash';
 const FOLDERS: { key: Folder; label: string }[] = [
@@ -151,16 +155,34 @@ function ComposePanel({ replyTo, attachedIds, onSend, onDraft }: {
 
 // ── Main Page ──────────────────────────────────────────────
 export default function EmailPage() {
-  const { emails, updateEmail, addEmail, brochures } = useAppStore();
+  const emails = useAppStore((s) => s.emails);
+  const drafts = useAppStore((s) => s.drafts);
+  const brochures = useAppStore((s) => s.brochures);
+  const updateEmail = useAppStore((s) => s.updateEmail);
+  const addEmail = useAppStore((s) => s.addEmail);
+  const setSelectedEmailId = useAppStore((s) => s.setSelectedEmailId);
+
   const [folder, setFolder] = useState<Folder>('inbox');
   const [selected, setSelected] = useState<EmailMessage | null>(null);
   const [composing, setComposing] = useState(false);
   const [replyTo, setReplyTo] = useState<EmailMessage | undefined>();
   const [attachedIds, setAttachedIds] = useState<string[]>([]);
   const [aiOpen, setAiOpen] = useState(true);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const folderEmails = [...emails].filter((e) => e.folder === folder).sort((a, b) => b.date.localeCompare(a.date));
   const unread = (f: Folder) => emails.filter((e) => e.folder === f && !e.isRead).length;
+
+  // Lookup the AI draft (if any) for the currently selected email.
+  const currentDraft = selected
+    ? drafts.find((d) => d.inReplyToEmailId === selected.id && d.status !== 'discarded') ?? null
+    : null;
+
+  // Sync selection with the store so voice commands can target it.
+  useEffect(() => {
+    setSelectedEmailId(selected?.id ?? null);
+    return () => setSelectedEmailId(null);
+  }, [selected, setSelectedEmailId]);
 
   function open(email: EmailMessage) {
     setSelected(email); setComposing(false);
@@ -180,6 +202,38 @@ export default function EmailPage() {
   function saveDraft(to: string, subject: string, body: string) {
     addEmail({ id: `e-${Date.now()}`, from: 'sarah@trinitysurfaces.com', fromName: 'Sarah T.', to: [to], subject, body, date: new Date().toISOString(), isRead: true, isStarred: false, folder: 'drafts', attachedBrochureIds: attachedIds });
     setComposing(false);
+  }
+
+  async function handleGenerateDraft() {
+    if (!selected || generatingId) return;
+    setGeneratingId(selected.id);
+    try {
+      await generateDraftForEmail(selected.id);
+    } catch (err) {
+      console.error('Draft generation failed', err);
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
+  async function handleRegenerateDraft() {
+    if (!selected || generatingId) return;
+    setGeneratingId(selected.id);
+    try {
+      await regenerateDraft(selected.id);
+    } catch (err) {
+      console.error('Regenerate failed', err);
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
+  function handleSendDraft(draftId: string) {
+    draftsService.send(draftId);
+  }
+
+  function handleDiscardDraft(draftId: string) {
+    draftsService.discard(draftId);
   }
 
   return (
@@ -229,30 +283,54 @@ export default function EmailPage() {
           {composing ? (
             <ComposePanel replyTo={replyTo} attachedIds={attachedIds} onSend={sendEmail} onDraft={saveDraft} />
           ) : selected ? (
-            <div className="p-5 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-semibold text-fg">{selected.subject}</h2>
-                  <p className="text-xs text-fg-muted mt-1"><strong>From:</strong> {selected.fromName} &lt;{selected.from}&gt;</p>
-                  <p className="text-xs text-fg-muted"><strong>To:</strong> {selected.to.join(', ')}</p>
-                  <p className="text-xs text-fg-faint">{selected.date.replace('T',' ').slice(0,16)}</p>
+            <div className="flex flex-col">
+              <div className="p-5 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-semibold text-fg">{selected.subject}</h2>
+                    <p className="text-xs text-fg-muted mt-1"><strong>From:</strong> {selected.fromName} &lt;{selected.from}&gt;</p>
+                    <p className="text-xs text-fg-muted"><strong>To:</strong> {selected.to.join(', ')}</p>
+                    <p className="text-xs text-fg-faint">{selected.date.replace('T',' ').slice(0,16)}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => updateEmail(selected.id, { isStarred: !selected.isStarred })} className="p-1 rounded hover:bg-surface-1">
+                      <Star size={16} className={selected.isStarred ? 'text-warning fill-warning' : 'text-fg-faint'} />
+                    </button>
+                    <button onClick={reply} className="px-3 py-1.5 text-xs border border-divider rounded-lg hover:bg-bg text-fg-muted">Reply</button>
+                  </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => updateEmail(selected.id, { isStarred: !selected.isStarred })} className="p-1 rounded hover:bg-surface-1">
-                    <Star size={16} className={selected.isStarred ? 'text-warning fill-warning' : 'text-fg-faint'} />
-                  </button>
-                  <button onClick={reply} className="px-3 py-1.5 text-xs border border-divider rounded-lg hover:bg-bg text-fg-muted">Reply</button>
-                </div>
+                {selected.attachedBrochureIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 py-2 border-y border-divider">
+                    {selected.attachedBrochureIds.map((bid) => {
+                      const b = brochures.find((br) => br.id === bid);
+                      return b ? <span key={bid} className="flex items-center gap-1 text-xs bg-surface-1 text-fg-muted px-2 py-1 rounded"><Paperclip size={11} /> {b.name}</span> : null;
+                    })}
+                  </div>
+                )}
+                <pre className="text-sm text-fg whitespace-pre-wrap font-sans leading-relaxed">{selected.body}</pre>
+
+                {/* New-project banner — only when the AI couldn't confidently match a project */}
+                {currentDraft && currentDraft.status === 'pending' && (
+                  <NewProjectPrompt
+                    draft={currentDraft}
+                    email={selected}
+                    onResolved={() => { /* draft updates flow through store subscriptions */ }}
+                  />
+                )}
               </div>
-              {selected.attachedBrochureIds.length > 0 && (
-                <div className="flex flex-wrap gap-2 py-2 border-y border-divider">
-                  {selected.attachedBrochureIds.map((bid) => {
-                    const b = brochures.find((br) => br.id === bid);
-                    return b ? <span key={bid} className="flex items-center gap-1 text-xs bg-surface-1 text-fg-muted px-2 py-1 rounded"><Paperclip size={11} /> {b.name}</span> : null;
-                  })}
-                </div>
+
+              {/* AI-drafted reply (inbox only — sent/drafts folders have their own flow) */}
+              {selected.folder === 'inbox' && (
+                <AutoDraftPanel
+                  draft={currentDraft}
+                  generating={generatingId === selected.id}
+                  emailId={selected.id}
+                  onGenerate={handleGenerateDraft}
+                  onRegenerate={handleRegenerateDraft}
+                  onSend={handleSendDraft}
+                  onDiscard={handleDiscardDraft}
+                />
               )}
-              <pre className="text-sm text-fg whitespace-pre-wrap font-sans leading-relaxed">{selected.body}</pre>
             </div>
           ) : (
             <p className="text-sm text-fg-faint text-center mt-16">Select an email to read</p>
