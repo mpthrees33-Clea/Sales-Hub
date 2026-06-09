@@ -1,11 +1,4 @@
-# Sales-Hub
-
-App/ideas for commercial sales reps to run their day-to-day — and a home for the AI products
-spun out of that world.
-
----
-
-## Branch: `ai-monetization-ideas` → **Or-Equal** *(working name)*
+# Or-Equal *(working name)*
 
 AI for the **commercial A&D finish-spec workflow**. Two features, one platform:
 
@@ -18,13 +11,13 @@ AI for the **commercial A&D finish-spec workflow**. Two features, one platform:
 > Both share one core asset: a fresh, structured index of commercial finishes. That index —
 > not the AI — is the moat.
 
-### Start here
+## Start here
 
 - **`CLAUDE.md`** — full context handoff (read first if you're picking this up).
 - **`docs/`** — vision, product, architecture, go-to-market, roadmap, decision log.
 - **`spikes/`** — two runnable experiments that de-risk the hard parts before we build.
 
-### Status
+## Status
 
 Pre-MVP. Validating the two highest-risk assumptions via the spikes in `spikes/`. See
 `docs/05-roadmap.md` and the "Where we left off" section of `CLAUDE.md`.
