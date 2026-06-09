@@ -46,6 +46,13 @@ budget & lead time → render the winner into the real project → confirm and s
   defensible. Founder's domain knowledge makes the index *correct* (what's a real substitute).
 - **Use the right tool for each job** (see Architecture). Most "it doesn't work" pain so far
   came from asking a *generative* model to do *retrieval/judgment* work.
+- **Business model = two-sided, Material-Bank-style:** *free for designers, manufacturers pay.*
+  Designers are demand we aggregate; **the founder is himself the demand-side distribution** (he
+  sits with design firms weekly → we skip the expensive marketplace cold-start). Manufacturers
+  buy inclusion + verified-partner status + spec-intent data/leads + a clearly-labeled
+  "discontinuation placement" — **never** pay-to-play ranking that displaces a better match
+  (designer trust is the product). The marketplace is the END STATE, not the runway-saver:
+  bridge with a concierge service + one launch-partner manufacturer. See `docs/04-go-to-market.md`.
 
 ## Key technical decisions made so far
 

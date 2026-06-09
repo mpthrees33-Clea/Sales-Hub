@@ -5,6 +5,27 @@ future-you both read this to know *why* things are the way they are.
 
 ---
 
+## 2026-06-09 — Business model chosen: two-sided (Material-Bank-style)
+
+- **Decision:** free for designers, **manufacturers pay**. Designers = demand we aggregate, not
+  the side we bill.
+- **Key insight:** the founder *is* the demand-side distribution (rep who sits with design firms
+  weekly) → we skip the marketplace cold-start that normally needs heavy VC.
+- **Guardrail:** never sell pay-to-play ranking that displaces a better match. Sell inclusion,
+  verified-partner status, spec-intent data/leads, and clearly-labeled "discontinuation
+  placement." Designer trust is the product.
+- **Runway guardrail:** the marketplace is the end state, NOT the near-term cash. Bridge with a
+  concierge service + one launch-partner manufacturer so we don't starve before the flywheel
+  spins.
+- Rewrote `docs/04-go-to-market.md` to this model.
+
+### NEXT (open)
+- [ ] Name the most likely **launch-partner manufacturer** (warm contact).
+- [ ] Name the first **free-designer beachhead** firm(s) (founder's own accounts).
+- [ ] Decide the comfortable line on "labeled placement" (trust).
+
+---
+
 ## 2026-06-09 — Project framing & first plan
 
 - Defined the platform: **Alternate Finder + Visualizer** as one product over a shared,
