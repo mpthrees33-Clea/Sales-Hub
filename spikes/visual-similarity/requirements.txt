@@ -1,0 +1,6 @@
+# Visual-similarity spike deps.
+# CPU is fine for a few hundred images; first run downloads the CLIP weights (~600MB).
+sentence-transformers>=2.6
+pillow>=10.0
+numpy>=1.24
+scikit-image>=0.22

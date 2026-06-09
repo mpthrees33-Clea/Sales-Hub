@@ -1,0 +1,3 @@
+# Render-fidelity spike deps.
+google-genai>=1.0
+pillow>=10.0
