@@ -5,6 +5,25 @@ future-you both read this to know *why* things are the way they are.
 
 ---
 
+## 2026-06-09 — Built the designer MVP (Streamlit app + `orequal/` package)
+
+- Productized the spike logic into **`orequal/`** (color, embedding, catalog, matching, render)
+  and a **Streamlit app** (`app/streamlit_app.py`): upload → hard-filter (budget/lead/material)
+  → rank by look (CLIP + ΔE/LRV) → optional Gemini render into a space/elevation.
+- **Catalog = folder + `catalog.csv`**; `data/make_sample_swatches.py` makes a synthetic demo
+  catalog so it runs on a clean clone. Real/proprietary catalogs are git-ignored.
+- **Decision:** ranking stays merit-only; any future paid placement is a separate labeled layer
+  (enforced by keeping `filter`/`rank` free of any sponsor signal).
+- Verified end-to-end headlessly (generator → load → filter → rank with stubbed embeddings).
+  Querying "Greige Linen" correctly returned the other greige first (ΔE 4) and dropped
+  over-budget / long-lead items. CLIP + Gemini paths wired but not run here.
+
+### NEXT (open)
+- [ ] First real local run with CLIP installed; tune default weights / ΔE scale on real images.
+- [ ] Hand-seed a real catalog (3–5 manufacturers) and demo to a real designer.
+
+---
+
 ## 2026-06-09 — Business model chosen: two-sided (Material-Bank-style)
 
 - **Decision:** free for designers, **manufacturers pay**. Designers = demand we aggregate, not

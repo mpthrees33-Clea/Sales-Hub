@@ -82,17 +82,26 @@ whether the scary part is actually hard.
    wall/floor (and an elevation) with correct perspective, scale, grout, and pattern, WITHOUT
    hallucinating the design? If yes, we have a visualizer nobody in commercial has.
 
+## Current state (what's built)
+
+- **Designer MVP app exists** (`app/streamlit_app.py`) over the **`orequal/`** package:
+  upload product → hard-filter catalog (budget/lead/material) → rank survivors by look
+  (CLIP pattern + ΔE/LRV color) → optionally render a pick into a space/elevation (Gemini).
+- **Catalog = a folder + `catalog.csv`** (`data/README.md`). `data/make_sample_swatches.py`
+  generates a synthetic demo catalog so the app runs on a fresh clone.
+- Core pipeline verified end-to-end headlessly (generator → load → filter → rank). CLIP/Gemini
+  paths weren't run here (heavy deps / need API key) but are wired and syntax-clean.
+
 ## Where we left off / next steps
 
-- [ ] Founder to run **visual-similarity spike** on ~200 real product images + 1 discontinued
-      tile. Eyeball top-5. (See `spikes/visual-similarity/README.md`.)
-- [ ] Founder to run **render-fidelity spike** with a real tile + space photo + an elevation.
-      (Needs `GEMINI_API_KEY`. See `spikes/render-fidelity/README.md`.)
-- [ ] Record results in `docs/decision-log.md` (template entry already stubbed).
-- [ ] Based on spike results, pick MVP shape: pure-generative vs. hybrid render; embedding-only
-      vs. embedding+fine-tune for matching.
-- [ ] Identify 1 warm manufacturer/distributor for a paid pilot (fastest cash — see
-      `docs/04-go-to-market.md`).
+- [ ] **Run the app** (`streamlit run app/streamlit_app.py`) — first real local run with CLIP
+      installed; confirm the demo flow, then point it at a hand-built real catalog.
+- [ ] **Seed a real catalog** from 3–5 manufacturers the founder knows (`data/README.md`).
+- [ ] Get it in front of the founder's own designers (free) — Phase 1 of GTM.
+- [ ] Run the two **spikes** on real images to tune defaults (weights, ΔE scale) and confirm
+      render fidelity / decide pure-generative vs. hybrid. Record in `docs/decision-log.md`.
+- [ ] Name the first **launch-partner manufacturer** + first **designer beachhead** firm.
+- [ ] Instrument usage events (surfaced-as-or-equal, searched-but-missing) — the data we sell.
 
 ## Repo map
 
@@ -104,7 +113,10 @@ whether the scary part is actually hard.
 - `docs/05-roadmap.md` — 6-week plan and beyond.
 - `docs/06-launch-partner-onepager.md` — manufacturer pitch leave-behind (fill in brackets).
 - `docs/decision-log.md` — running log of decisions + spike results. **Append here.**
-- `spikes/` — runnable de-risking experiments.
+- `orequal/` — core package (color, embedding, catalog, matching, render).
+- `app/streamlit_app.py` — designer-facing app.
+- `data/` — catalog format + demo-catalog generator (`make_sample_swatches.py`).
+- `requirements.txt` — app deps. `spikes/` — the de-risking experiments.
 
 ## Working notes for future-Claude
 

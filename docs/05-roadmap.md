@@ -11,11 +11,11 @@ Runway-aware. The goal of the next 6 weeks is **one paid pilot**, not a finished
 
 ## Phase 1 — Scrappy MVP the founder can demo (wks 2–3)
 
-- [ ] Seed a tiny product index by hand from 3–5 manufacturers the founder knows (no crawler
-      yet — manual is fine).
-- [ ] Wire the winning spike(s) into a one-command flow: input product → alternates and/or render.
-- [ ] No accounts, no billing, minimal/no UI. Just something to run live in a meeting.
-- [ ] Use it on a real account; capture the designer's reaction.
+- [x] Wire the spike engines into one flow: input product → filtered, ranked alternates → render.
+      (`orequal/` package + `app/streamlit_app.py`, runnable via Streamlit.)
+- [x] Demo catalog generator so it runs on a fresh clone (`data/make_sample_swatches.py`).
+- [ ] Seed a tiny **real** product index by hand from 3–5 manufacturers (no crawler yet).
+- [ ] Run it live on a real account; capture the designer's reaction.
 
 ## Phase 2 — First paid pilot (wks 4–6)
 

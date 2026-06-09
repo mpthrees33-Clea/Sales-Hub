@@ -1,0 +1,7 @@
+# Or-Equal app (designer-facing). CPU is fine; first model load downloads ~600MB.
+streamlit>=1.33
+sentence-transformers>=2.6
+scikit-image>=0.22
+pillow>=10.0
+numpy>=1.24
+google-genai>=1.0      # only needed for the Visualizer

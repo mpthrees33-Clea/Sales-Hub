@@ -18,6 +18,11 @@ spikes/**/inputs/
 spikes/**/outputs/
 spikes/**/*.report.html
 
+# Catalogs: generated demo + real/proprietary product images (keep generator + README)
+data/sample_catalog/
+data/*_catalog/
+data/my_catalog/
+
 # OS / editor
 .DS_Store
 .idea/
