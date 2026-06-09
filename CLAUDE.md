@@ -102,6 +102,7 @@ whether the scary part is actually hard.
 - `docs/03-spikes.md` — what we're testing and the pass/fail bar.
 - `docs/04-go-to-market.md` — who pays first, pricing, runway-aware sequencing.
 - `docs/05-roadmap.md` — 6-week plan and beyond.
+- `docs/06-launch-partner-onepager.md` — manufacturer pitch leave-behind (fill in brackets).
 - `docs/decision-log.md` — running log of decisions + spike results. **Append here.**
 - `spikes/` — runnable de-risking experiments.
 
