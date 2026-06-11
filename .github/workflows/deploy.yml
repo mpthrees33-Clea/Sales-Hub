@@ -27,6 +27,7 @@ jobs:
       - name: Build
         env:
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_SHARED_PASSWORD: ${{ secrets.VITE_SHARED_PASSWORD }}
         run: npm run build
 
       - name: Add .nojekyll
