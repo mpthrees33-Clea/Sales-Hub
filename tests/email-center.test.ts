@@ -5,6 +5,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import "@/lib/load-env";
+import { resetStagedBatch } from "./helpers/reset-staged";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { emails, emailThreads, triageRoutings } from "@/db/schema";
@@ -21,6 +22,7 @@ import { DEMO_NOW } from "@/db/seed/scenario";
 beforeAll(async () => {
   await setDemoNow(DEMO_NOW);
   invalidateDemoClockCache();
+  await resetStagedBatch();
 });
 
 describe("categoryToTarget (deterministic map)", () => {

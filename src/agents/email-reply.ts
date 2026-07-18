@@ -140,7 +140,7 @@ const searchAssets = scopedTool({
   },
 });
 
-const createEmailDraft = scopedTool({
+export const createEmailDraft = scopedTool({
   name: "create_email_draft",
   description:
     "Create the outbound draft (EXTERNAL — the harness converts this into an email_draft approval; you cannot send).",
