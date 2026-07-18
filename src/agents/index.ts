@@ -6,6 +6,7 @@
 import type { AgentDef } from "@/harness/define-agent";
 import { emailReplyAgent } from "./email-reply";
 import { emailTriageAgent } from "./email-triage";
+import { poIntakeAgent } from "./po-intake";
 import { quoteAgent } from "./quote";
 import { smokeAgent } from "./smoke";
 
@@ -14,6 +15,7 @@ export const agents: Record<string, AgentDef<any, any>> = {
   "email-triage": emailTriageAgent,
   "email-reply": emailReplyAgent,
   quote: quoteAgent,
+  "po-intake": poIntakeAgent,
 };
 
 export function getAgent(name: string) {

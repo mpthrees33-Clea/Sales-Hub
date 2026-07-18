@@ -89,6 +89,12 @@ export function defineAgent<In, Out>(cfg: {
    * a value that passes outputSchema — parse-or-escalate applies equally.
    */
   demoScript?: (ctx: DemoScriptCtx<In>) => Promise<unknown>;
+  /**
+   * Optional custom user-message content for the live model call (e.g. the
+   * po-intake agent attaches the PDF as a native file part). Demo scripts
+   * fetch their own inputs.
+   */
+  buildUserContent?: (input: In) => Promise<unknown>;
   /** Kind for the human-input approval created when this agent escalates. */
   escalationApprovalKind?: ApprovalKind;
   /** Extra context stored on escalation approvals (e.g. source email id). */
@@ -287,12 +293,16 @@ export function defineAgent<In, Out>(cfg: {
           }),
         ]),
       );
+      const system =
+        cfg.systemPrompt({ demoNow, trigger: opts.trigger }) +
+        "\n\nWhen you are done, output ONLY a single JSON object matching the required output schema — no prose around it.";
+      const userContent = cfg.buildUserContent ? await cfg.buildUserContent(input) : null;
       const result = await generateText({
         model: cfg.model,
-        system:
-          cfg.systemPrompt({ demoNow, trigger: opts.trigger }) +
-          "\n\nWhen you are done, output ONLY a single JSON object matching the required output schema — no prose around it.",
-        prompt: `Input:\n${JSON.stringify(input, null, 2)}`,
+        system,
+        ...(userContent
+          ? { messages: [{ role: "user" as const, content: userContent as never }] }
+          : { prompt: `Input:\n${JSON.stringify(input, null, 2)}` }),
         tools,
         stopWhen: stepCountIs(maxSteps),
       });
