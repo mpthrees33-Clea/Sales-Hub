@@ -1,19 +1,15 @@
-import { Inbox } from "lucide-react";
-import { Card, EmptyState } from "@/components/ui";
+/**
+ * Approvals — the hero surface (WO-03). Server component: loads the pre-fetched
+ * queue (sweeping expiries), then hands it to the keyboard-first client inbox.
+ * `?id=` deep-links a specific approval (ticker/banner CTAs land here).
+ */
+import { loadQueue } from "@/lib/queries/approvals";
+import { ApprovalsInbox } from "./_components/inbox";
 
 export const dynamic = "force-dynamic";
 
-export default function Page() {
-  return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="mb-4 text-lg font-semibold tracking-tight">Approvals</h1>
-      <Card>
-        <EmptyState
-          icon={Inbox}
-          title="The queue is clear"
-          copy="Every agent draft terminates here for human review. Drafts only — humans send."
-        />
-      </Card>
-    </div>
-  );
+export default async function Page({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+  const { id } = await searchParams;
+  const queue = await loadQueue();
+  return <ApprovalsInbox demoNow={queue.demoNow} pending={queue.pending} initialId={id ?? null} />;
 }
