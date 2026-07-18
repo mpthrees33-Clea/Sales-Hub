@@ -4,10 +4,14 @@
  * this registry only.
  */
 import type { AgentDef } from "@/harness/define-agent";
+import { emailReplyAgent } from "./email-reply";
+import { emailTriageAgent } from "./email-triage";
 import { smokeAgent } from "./smoke";
 
 export const agents: Record<string, AgentDef<any, any>> = {
   smoke: smokeAgent,
+  "email-triage": emailTriageAgent,
+  "email-reply": emailReplyAgent,
 };
 
 export function getAgent(name: string) {
