@@ -3,53 +3,107 @@
 /**
  * Agent activity ticker (docs/03 §2) — thin strip of live/recent runs shown
  * everywhere in the shell. Items deep-link to the run drawer on Mission
- * Control. Polls the shared /api/runs/recent source every 5s,
- * visibility-aware; static (no marquee) under prefers-reduced-motion.
+ * Control.
+ *
+ * `useRecentRuns()` is the ONE shared poll source for both this ticker and the
+ * dashboard runs panel (WO-02): a single module-level interval hits
+ * /api/runs/recent every 5s, is visibility-aware (skips while the tab is
+ * hidden, refetches on re-show), and fans results out to every subscriber via
+ * useSyncExternalStore — no duplicate polling. The running-status dot pulse is
+ * the only animation and is suppressed under prefers-reduced-motion (globals).
  */
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
-export type TickerRun = {
+export type ClientRun = {
   id: string;
   agentName: string;
+  trigger: "nightly" | "user" | "workflow" | "system";
   status: "running" | "succeeded" | "escalated" | "failed";
+  model: string | null;
+  costUsd: string;
+  elapsedMs: number;
   summary: string;
 };
 
-let sharedCache: { at: number; runs: TickerRun[] } | null = null;
+// ── Shared poll source (single interval, many subscribers) ───────────────────
 
-export function useRecentRuns(limit = 20): TickerRun[] {
-  const [runs, setRuns] = useState<TickerRun[]>(sharedCache?.runs ?? []);
-  useEffect(() => {
-    let stop = false;
-    const load = async () => {
-      if (document.hidden) return;
-      if (sharedCache && Date.now() - sharedCache.at < 4500) {
-        setRuns(sharedCache.runs);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/runs/recent?limit=${limit}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const data = (await res.json()) as { runs: TickerRun[] };
-        sharedCache = { at: Date.now(), runs: data.runs };
-        if (!stop) setRuns(data.runs);
-      } catch {
-        // transient; next poll retries
-      }
-    };
-    void load();
-    const t = setInterval(load, 5000);
-    return () => {
-      stop = true;
-      clearInterval(t);
-    };
-  }, [limit]);
-  return runs;
+const EMPTY: ClientRun[] = [];
+let snapshot: ClientRun[] = EMPTY;
+let loaded = false;
+const listeners = new Set<() => void>();
+let timer: ReturnType<typeof setInterval> | null = null;
+let running = false;
+
+function emit(): void {
+  for (const l of listeners) l();
 }
 
-const STATUS_DOT: Record<TickerRun["status"], string> = {
+async function poll(): Promise<void> {
+  if (typeof document !== "undefined" && document.hidden) return;
+  try {
+    const res = await fetch(`/api/runs/recent?limit=20`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { runs: ClientRun[] };
+    snapshot = data.runs;
+  } catch {
+    // transient — the next tick retries
+  } finally {
+    loaded = true;
+    emit();
+  }
+}
+
+function onVisibility(): void {
+  if (!document.hidden) void poll();
+}
+
+function startPolling(): void {
+  if (running) return;
+  running = true;
+  void poll();
+  timer = setInterval(poll, 5000);
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibility);
+}
+
+function stopPolling(): void {
+  running = false;
+  if (timer) clearInterval(timer);
+  timer = null;
+  if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisibility);
+}
+
+function subscribe(cb: () => void): () => void {
+  listeners.add(cb);
+  startPolling();
+  return () => {
+    listeners.delete(cb);
+    if (listeners.size === 0) stopPolling();
+  };
+}
+
+/** Live recent runs, shared across every mounted consumer. */
+export function useRecentRuns(): ClientRun[] {
+  return useSyncExternalStore(
+    subscribe,
+    () => snapshot,
+    () => EMPTY,
+  );
+}
+
+/** True once the first poll has resolved — lets consumers show a skeleton. */
+export function useRunsLoaded(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => loaded,
+    () => false,
+  );
+}
+
+// ── Ticker ───────────────────────────────────────────────────────────────────
+
+const STATUS_DOT: Record<ClientRun["status"], string> = {
   running: "bg-accent status-running",
   succeeded: "bg-ok",
   escalated: "bg-warn",
@@ -57,7 +111,7 @@ const STATUS_DOT: Record<TickerRun["status"], string> = {
 };
 
 export function AgentTicker() {
-  const runs = useRecentRuns(8);
+  const runs = useRecentRuns();
   if (runs.length === 0) {
     return (
       <div className="flex h-7 items-center border-b border-line bg-bg px-4 md:px-5">
