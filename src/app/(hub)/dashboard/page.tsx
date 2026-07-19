@@ -13,7 +13,7 @@ import { Card, CardHeader } from "@/components/ui";
 import { kpis, todaysDocket } from "@/lib/queries/dashboard";
 import { OvernightBanner } from "./_components/overnight-banner";
 import { Docket, DocketSkeleton } from "./_components/docket";
-import { RoutePreview } from "./_components/route-preview";
+import { RouteCard } from "@/components/route-card";
 import { ChangesFeed, ChangesFeedSkeleton } from "./_components/changes-feed";
 import { RunsPanel } from "./_components/runs-panel";
 import { RunDrawer } from "./_components/run-drawer";
@@ -50,10 +50,6 @@ async function DocketPanel() {
   return <Docket items={items} />;
 }
 
-async function RoutePanel() {
-  const items = await getDocket();
-  return <RoutePreview stops={items.map((m) => ({ id: m.id, title: m.title, location: m.location }))} />;
-}
 
 function BannerSkeleton() {
   return (
@@ -99,7 +95,7 @@ export default function Page() {
         </div>
         <div className="space-y-4">
           <Suspense fallback={<RoutePanelSkeleton />}>
-            <RoutePanel />
+            <RouteCard />
           </Suspense>
           <Suspense fallback={<ChangesFeedSkeleton />}>
             <ChangesFeed />

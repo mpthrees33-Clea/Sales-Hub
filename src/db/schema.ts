@@ -558,6 +558,24 @@ export const roomScenes = pgTable("room_scenes", {
   ...timestamps,
 });
 
+/** Cached optimized route for a demo-day + config (WO-12). Shape mirrors MapsProvider output plus resolved stop metadata for rendering without a re-query. */
+export type RouteCacheStop = { id: string; title: string; location: string | null; lat: number; lng: number; arriveBy: string | null; endsAt: string | null; prepNote?: string };
+export type RouteCachePayload = {
+  origin: { label: string; lat: number; lng: number };
+  roundTrip: boolean;
+  departAfter: string;
+  stops: RouteCacheStop[];
+  route: {
+    orderedStopIds: string[];
+    legs: { fromId: string; toId: string; durationSec: number; distanceMeters: number }[];
+    totalDurationSec: number;
+    totalDistanceMeters: number;
+    shareUrl: string;
+    computedAt: string;
+    linkTruncatedStopIds: string[];
+  };
+};
+
 // ── Agent infrastructure (the showcase) ──────────────────────────────────────
 
 export const agentRuns = pgTable(
@@ -729,7 +747,7 @@ export const routesCache = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     routeDate: date("route_date").notNull(),
     variant: text("variant").notNull().default("default"), // round-trip / exclusions key
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    payload: jsonb("payload").$type<RouteCachePayload>().notNull(),
     computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow().notNull(),
     ...timestamps,
   },
