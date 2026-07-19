@@ -95,8 +95,8 @@ export async function claimRoutingById(id: string, runId?: string): Promise<Rout
 }
 
 /** Mark a claimed routing consumed. Escalated runs also complete — the escalated run is the human record. */
-export async function completeRouting(id: string, runId: string): Promise<void> {
-  await db.update(triageRoutings).set({ status: "consumed", consumedByRunId: runId }).where(eq(triageRoutings.id, id));
+export async function completeRouting(id: string, runId?: string | null): Promise<void> {
+  await db.update(triageRoutings).set({ status: "consumed", consumedByRunId: runId || null }).where(eq(triageRoutings.id, id));
 }
 
 /** Release a claimed routing back to pending after a transient failure. */

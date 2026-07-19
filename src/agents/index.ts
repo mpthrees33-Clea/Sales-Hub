@@ -8,12 +8,14 @@ import { smokeAgent } from "./smoke";
 import { emailTriageAgent } from "./email-triage";
 import { emailReplyAgent } from "./email-reply";
 import { quoteAgent } from "./quote";
+import { poIntakeAgent } from "./po-intake";
 
 export const agents: Record<string, AgentDef<any, any>> = {
   smoke: smokeAgent,
   "email-triage": emailTriageAgent,
   "email-reply": emailReplyAgent,
   quote: quoteAgent,
+  "po-intake": poIntakeAgent,
 };
 
 export function getAgent(name: string) {
