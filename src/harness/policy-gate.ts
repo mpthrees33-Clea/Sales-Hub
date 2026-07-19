@@ -12,9 +12,9 @@
  *       pds_documents, or blob outputs of a recorded run
  *   (d) risk tiers — `high` can never be batch-approved; batch is low-only
  */
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { agentRuns, approvals, assets, auditLog, contacts, pdsDocuments } from "@/db/schema";
+import { agentRuns, approvals, auditLog, contacts } from "@/db/schema";
 import type { ApprovalKind } from "./tool";
 
 export const POLICY_CONFIG = {
@@ -172,17 +172,14 @@ export function extractAttachmentIds(payload: Record<string, unknown>): string[]
 }
 
 async function checkAttachmentOrigin(ids: string[]): Promise<GateVerdict> {
-  const assetRows = await db.select({ id: assets.id }).from(assets).where(inArray(assets.id, ids));
-  const pdsRows = await db.select({ id: pdsDocuments.id }).from(pdsDocuments).where(inArray(pdsDocuments.id, ids));
-  const known = new Set([...assetRows.map((r) => r.id), ...pdsRows.map((r) => r.id)]);
-  for (const id of ids) {
-    if (!known.has(id)) {
-      return {
-        allowed: false,
-        rule: "attachment_origin",
-        reason: `Attachment ${id} is not a library asset or product document`,
-      };
-    }
+  // Single source of attachability: the WO-10 asset-library contract.
+  const { isAttachable } = await import("@/lib/assets");
+  if (!(await isAttachable(ids))) {
+    return {
+      allowed: false,
+      rule: "attachment_origin",
+      reason: `Attachment ${ids.join(", ")} is not a library asset or product document`,
+    };
   }
   return { allowed: true };
 }
