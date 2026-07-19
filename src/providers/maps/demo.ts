@@ -8,7 +8,9 @@
 import type { MapsProvider, OptimizedRoute, OptimizeRouteInput, RouteLeg } from "./types";
 import { buildShareUrl } from "./share-url";
 
-const AVG_SPEED_KMH = 52; // metro driving with traffic
+const METRO_SPEED_KMH = 52; // in-town driving with traffic
+const HIGHWAY_SPEED_KMH = 95; // inter-metro legs (I-85 Charlotte↔Raleigh)
+const HIGHWAY_THRESHOLD_M = 40_000; // legs longer than this are mostly highway
 const PER_LEG_OVERHEAD_SEC = 240; // parking, lights, lot-to-door
 
 export function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -27,9 +29,10 @@ function legBetween(a: { lat: number; lng: number }, b: { lat: number; lng: numb
 } {
   const straight = haversineMeters(a, b);
   const road = straight * 1.32; // road-network factor
+  const speedKmh = road > HIGHWAY_THRESHOLD_M ? HIGHWAY_SPEED_KMH : METRO_SPEED_KMH;
   return {
     distanceMeters: Math.round(road),
-    durationSec: Math.round((road / 1000 / AVG_SPEED_KMH) * 3600 + PER_LEG_OVERHEAD_SEC),
+    durationSec: Math.round((road / 1000 / speedKmh) * 3600 + PER_LEG_OVERHEAD_SEC),
   };
 }
 

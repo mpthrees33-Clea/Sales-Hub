@@ -5,7 +5,7 @@ import { ChangesFeed } from "./_components/changes-feed";
 import { Docket } from "./_components/docket";
 import { KpiRow } from "./_components/kpi-row";
 import { OvernightBanner } from "./_components/overnight-banner";
-import { RoutePreview } from "./_components/route-preview";
+import { RouteCard } from "@/components/route-card";
 import { RunsPanel } from "./_components/runs-panel";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export default async function DashboardPage({
         </div>
         <div className="space-y-4">
           <Suspense fallback={<Skeleton className="h-40 w-full rounded-lg" />}>
-            <RoutePreview />
+            <RouteCard />
           </Suspense>
           <RunsPanel initialOpenRunId={run} />
         </div>
