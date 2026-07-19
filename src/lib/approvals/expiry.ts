@@ -9,6 +9,16 @@ import { approvals } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { getDemoNow } from "@/lib/demo-clock";
 
+/**
+ * Pure demo-clock expiry predicate — an approval is expired once its
+ * `expiresDemoAt` is at or before the current demo clock. Used by the
+ * resolution core to refuse execution of a stale approval, and shared with
+ * the sweep so both agree on the boundary.
+ */
+export function isExpired(approval: { expiresDemoAt: Date }, demoNow: Date): boolean {
+  return approval.expiresDemoAt.getTime() <= demoNow.getTime();
+}
+
 export async function sweepExpiredApprovals(): Promise<number> {
   const demoNow = await getDemoNow();
   const expired = await db
