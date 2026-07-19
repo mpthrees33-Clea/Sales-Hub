@@ -113,6 +113,8 @@ async function resolveOne(e: Evidence): Promise<EvidenceSource> {
       if (!row) return { kind: "unknown" };
       return { kind: "inventory", sku: row.sku, onHand: row.onHand, allocated: row.allocated, leadTimeDays: row.leadTimeDays };
     }
+    case "product":
+      return { kind: "unknown" };
   }
 }
 

@@ -604,7 +604,7 @@ export const agentSteps = pgTable(
 );
 
 export type Evidence = {
-  type: "email" | "pdf_page" | "price_row" | "transcript_segment" | "inventory_row";
+  type: "email" | "pdf_page" | "price_row" | "transcript_segment" | "inventory_row" | "product";
   ref: Record<string, unknown>;
   quote: string;
 };

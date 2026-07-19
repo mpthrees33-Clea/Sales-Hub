@@ -5,7 +5,7 @@
  * evidence item; icon by type; click opens the source panel (WO-03 supplies
  * the panel via onOpen). Contract fixed in WO-01.
  */
-import { FileText, Mail, Mic, Package, Table2 } from "lucide-react";
+import { FileText, Mail, Mic, Package, Palette, Table2 } from "lucide-react";
 import type { Evidence } from "@/db/schema";
 
 const ICONS = {
@@ -14,6 +14,7 @@ const ICONS = {
   price_row: Table2,
   transcript_segment: Mic,
   inventory_row: Package,
+  product: Palette,
 } as const;
 
 const LABELS = {
@@ -22,6 +23,7 @@ const LABELS = {
   price_row: "price row",
   transcript_segment: "transcript",
   inventory_row: "inventory",
+  product: "product",
 } as const;
 
 export function EvidenceChips({

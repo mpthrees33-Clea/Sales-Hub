@@ -36,7 +36,7 @@ export default async function Page({ params }: { params: Promise<{ sku: string }
           </div>
           <div className="mt-3 flex gap-2">
             <Link href={`/samples/new?sku=${product.sku}`} className="rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink hover:opacity-90">Order sample</Link>
-            <Link href={`/scenes?sku=${product.sku}`} className="rounded-md border border-line bg-surface2 px-3 py-1.5 text-[12px] font-medium hover:border-line-strong">Generate scene</Link>
+            <Link href={`/scenes/new?sku=${product.sku}`} className="rounded-md border border-line bg-surface2 px-3 py-1.5 text-[12px] font-medium hover:border-line-strong">Generate scene</Link>
           </div>
         </Card>
 
