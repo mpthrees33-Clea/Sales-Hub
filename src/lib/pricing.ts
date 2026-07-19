@@ -8,10 +8,16 @@ import { db } from "@/db/client";
 import { accountPriceLists, priceListItems, priceLists, products } from "@/db/schema";
 import { EscalationError } from "@/harness/errors";
 
+export type PriceLineRequest = { productId: string; qty: number; uom?: string };
+
 export type PricedLine = {
   productId: string;
   sku: string;
+  /** The quantity as requested, before min-order-qty enforcement. */
+  requestedQty: number;
+  /** The effective quantity actually priced (>= the row's minQty). */
   qty: number;
+  uom: string;
   unitPriceCents: number;
   extendedCents: number;
   minQty: number;
@@ -40,14 +46,19 @@ export async function resolvePriceList(
 /**
  * Price lines for an account at its tier, integer cents throughout.
  * Missing price row → EscalationError('price_row_missing'); non-positive or
- * non-integer qty → EscalationError('invalid_qty'). Grounded or it escalates.
+ * non-integer requested qty → EscalationError('invalid_qty'). The per-row
+ * minimum order quantity is enforced: the effective `qty` is raised to `minQty`
+ * (with `requestedQty` preserved) so the priced total reflects the real MOQ.
+ * Grounded or it escalates — the model never computes a price.
  */
 export async function priceLines(
   accountId: string,
-  lines: { productId: string; qty: number }[],
+  lines: PriceLineRequest[],
 ): Promise<{ lines: PricedLine[]; subtotalCents: number }> {
   if (lines.length === 0) return { lines: [], subtotalCents: 0 };
   const pl = await resolvePriceList(accountId);
+  // Dedup product ids for the lookup; a request may list the same SKU twice.
+  const productIds = [...new Set(lines.map((l) => l.productId))];
   const rows = await db
     .select({
       productId: priceListItems.productId,
@@ -58,15 +69,7 @@ export async function priceLines(
     })
     .from(priceListItems)
     .innerJoin(products, eq(products.id, priceListItems.productId))
-    .where(
-      and(
-        eq(priceListItems.priceListId, pl.priceListId),
-        inArray(
-          priceListItems.productId,
-          lines.map((l) => l.productId),
-        ),
-      ),
-    );
+    .where(and(eq(priceListItems.priceListId, pl.priceListId), inArray(priceListItems.productId, productIds)));
   const byProduct = new Map(rows.map((r) => [r.productId, r]));
 
   const out: PricedLine[] = lines.map((line) => {
@@ -77,12 +80,15 @@ export async function priceLines(
     if (!Number.isInteger(line.qty) || line.qty <= 0) {
       throw new EscalationError("invalid_qty", { productId: line.productId, qty: line.qty });
     }
+    const qty = Math.max(line.qty, row.minQty);
     return {
       productId: line.productId,
       sku: row.sku,
-      qty: line.qty,
+      requestedQty: line.qty,
+      qty,
+      uom: line.uom ?? "roll",
       unitPriceCents: row.unitPriceCents,
-      extendedCents: line.qty * row.unitPriceCents,
+      extendedCents: qty * row.unitPriceCents,
       minQty: row.minQty,
       priceListItemId: row.priceListItemId,
       priceListId: pl.priceListId,
