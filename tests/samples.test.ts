@@ -204,7 +204,6 @@ describe("sample-order agent", () => {
 });
 
 async function rattanSkuDigits(): Promise<string> {
-  const { products } = await import("@/db/schema");
   const row = await db.query.products.findFirst({ where: (t, { eq: e }) => e(t.name, "Rattan") });
   return row!.sku.split("-")[2]!;
 }

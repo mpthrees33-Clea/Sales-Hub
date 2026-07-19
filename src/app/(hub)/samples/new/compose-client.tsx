@@ -8,7 +8,6 @@
  */
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { Button, Card, CardHeader, Mono } from "@/components/ui";
@@ -27,7 +26,6 @@ export function SampleComposeClient({
   contacts: ContactOpt[];
   preselectedProductId?: string;
 }) {
-  const router = useRouter();
   const pre = products.find((p) => p.id === preselectedProductId);
   const [lines, setLines] = useState<Line[]>(
     pre ? [{ productId: pre.id, sku: pre.sku, name: pre.name, size: "8x10", qty: 1 }] : [],

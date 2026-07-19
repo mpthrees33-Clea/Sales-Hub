@@ -7,7 +7,7 @@
 import { eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { accounts, contacts, emails, triageRoutings, SAMPLE_SIZES } from "@/db/schema";
+import { accounts, contacts, emails, SAMPLE_SIZES } from "@/db/schema";
 import { defineAgent, type AgentRunResult } from "@/harness/define-agent";
 import { EscalationError } from "@/harness/errors";
 import { scopedTool } from "@/harness/tool";
