@@ -47,8 +47,14 @@ const REGISTRY: Record<string, () => Promise<Runner | null>> = {
       return null;
     }
   },
-  // WO-14 registers its runner here when merged; until then it degrades to a skip.
-  submittal: async () => null,
+  submittal: async () => {
+    try {
+      const { runSubmittalFromRouting } = await import("@/lib/submittals");
+      return (id) => runSubmittalFromRouting(id);
+    } catch {
+      return null;
+    }
+  },
 };
 
 export async function dispatchRouting(routing: RoutingRow): Promise<DispatchResult> {

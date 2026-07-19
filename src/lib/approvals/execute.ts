@@ -22,6 +22,7 @@ import {
   type SampleItem,
 } from "@/db/schema";
 import { getEmailProvider, getErpProvider } from "@/providers";
+import { registerAsset } from "@/lib/assets";
 
 type ApprovalRow = typeof approvals.$inferSelect;
 export type ExecuteResult = { provider: string; ref: string };
@@ -182,17 +183,35 @@ export async function executeApproval(approval: ApprovalRow, ctx: ExecuteCtx): P
     }
 
     case "submittal": {
+      const title = typeof p.packageTitle === "string" ? p.packageTitle : "Submittal Package";
+      const blobUrl = typeof p.outputBlobUrl === "string" ? p.outputBlobUrl : null;
+      // The agent pre-assembled the package (pending_approval) — finalize it and
+      // register the assembled PDF as an attachable asset (origin check passes).
+      if (typeof p.submittalPackageId === "string") {
+        await db.update(submittalPackages).set({ status: "approved" }).where(eq(submittalPackages.id, p.submittalPackageId));
+        if (blobUrl) {
+          const assetId = await registerAsset({ kind: "submittal", title, blobUrl, contentType: "application/pdf", tags: ["submittal"], productIds: asArray<string>(p.productIds) });
+          return { provider: "assets", ref: "asset:" + assetId.slice(0, 8) };
+        }
+        return { provider: "assets", ref: "submittal:" + p.submittalPackageId.slice(0, 8) };
+      }
+      // Fallback (manual/legacy payload with no pre-created package).
       const sections = asArray<Record<string, unknown>>(p.sections);
       const [row] = await db
         .insert(submittalPackages)
         .values({
           projectId: String(p.projectId),
-          name: typeof p.packageTitle === "string" ? p.packageTitle : "Submittal Package",
+          name: title,
           productIds: [],
           sections: sections as never,
           status: "approved",
+          outputBlobUrl: blobUrl,
         })
         .returning({ id: submittalPackages.id });
+      if (blobUrl) {
+        const assetId = await registerAsset({ kind: "submittal", title, blobUrl, contentType: "application/pdf", tags: ["submittal"] });
+        return { provider: "assets", ref: "asset:" + assetId.slice(0, 8) };
+      }
       return { provider: "assets", ref: "submittal:" + row!.id.slice(0, 8) };
     }
   }

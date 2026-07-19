@@ -14,6 +14,7 @@ import { sampleOrderAgent } from "./sample-order";
 import { opportunityUpdateAgent } from "./opportunity-update";
 import { morningBriefAgent } from "./morning-brief";
 import { roomSceneAgent } from "./room-scene";
+import { submittalAgent } from "./submittal";
 
 export const agents: Record<string, AgentDef<any, any>> = {
   smoke: smokeAgent,
@@ -26,6 +27,7 @@ export const agents: Record<string, AgentDef<any, any>> = {
   "opportunity-update": opportunityUpdateAgent,
   "morning-brief": morningBriefAgent,
   "room-scene": roomSceneAgent,
+  submittal: submittalAgent,
 };
 
 export function getAgent(name: string) {

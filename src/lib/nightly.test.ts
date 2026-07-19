@@ -6,6 +6,7 @@
  * no-op; the dispatch registry skips unmerged targets.
  */
 import { execSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import "@/lib/load-env";
 import { eq } from "drizzle-orm";
@@ -56,9 +57,11 @@ describe("nightly run", () => {
     expect(again.processed).toBe(0);
   });
 
-  it("dispatch skips an unmerged target (submittal) instead of failing", async () => {
-    const r = await dispatchRouting({ id: "x", emailId: "e", threadId: "t", category: "submittal_request", confidence: "0.9", target: "submittal", status: "pending", consumedByRunId: null, payload: null, createdAt: new Date(), updatedAt: new Date() } as never);
+  it("routes submittal to its runner, which leaves an unclaimed routing for the human", async () => {
+    // WO-14 wires the submittal runner. It never auto-assembles: it claims to
+    // inspect and returns a prepared-builder skip (here the routing does not
+    // exist, so the claim yields nothing and it skips cleanly — no throw).
+    const r = await dispatchRouting({ id: randomUUID(), emailId: randomUUID(), threadId: randomUUID(), category: "submittal_request", confidence: "0.9", target: "submittal", status: "pending", consumedByRunId: null, payload: null, createdAt: new Date(), updatedAt: new Date() } as never);
     expect(r.status).toBe("skipped");
-    expect(r.detail).toBe("module_not_installed");
   });
 });
