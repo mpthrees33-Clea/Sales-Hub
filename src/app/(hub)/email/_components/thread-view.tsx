@@ -17,12 +17,14 @@ export function ThreadView({
   detail,
   busy,
   onDraftReply,
+  onDraftQuote,
   onRetriage,
   onArchive,
 }: {
   detail: ThreadDetail;
   busy: boolean;
   onDraftReply: () => void;
+  onDraftQuote: () => void;
   onRetriage: () => void;
   onArchive: () => void;
 }) {
@@ -77,6 +79,11 @@ export function ThreadView({
         {isReplyTarget ? (
           <Button variant="primary" onClick={onDraftReply} disabled={busy}>
             <Bot className="h-3.5 w-3.5" /> Draft reply with AI
+          </Button>
+        ) : null}
+        {isQuoteTarget ? (
+          <Button variant="primary" onClick={onDraftQuote} disabled={busy}>
+            <Bot className="h-3.5 w-3.5" /> Draft quote
           </Button>
         ) : null}
         <Button variant="default" onClick={onRetriage} disabled={busy}>

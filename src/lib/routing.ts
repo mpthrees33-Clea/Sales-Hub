@@ -67,7 +67,7 @@ export type RoutingRow = typeof triageRoutings.$inferSelect;
  * guarantees exactly one winner under concurrency. Returns the claimed row or
  * null when none are available.
  */
-export async function claimRouting(target: RoutingTarget, runId: string): Promise<RoutingRow | null> {
+export async function claimRouting(target: RoutingTarget, runId?: string): Promise<RoutingRow | null> {
   const candidates = await db
     .select({ id: triageRoutings.id })
     .from(triageRoutings)
@@ -82,12 +82,13 @@ export async function claimRouting(target: RoutingTarget, runId: string): Promis
 /**
  * Atomically claim a specific routing by id. The `WHERE status='pending'` clause
  * is the compare-and-set: two concurrent claims on the same row → one winner,
- * the other gets null.
+ * the other gets null. `runId` is optional — a runner that claims before its
+ * agent run exists sets `consumed_by_run_id` later via completeRouting.
  */
-export async function claimRoutingById(id: string, runId: string): Promise<RoutingRow | null> {
+export async function claimRoutingById(id: string, runId?: string): Promise<RoutingRow | null> {
   const [row] = await db
     .update(triageRoutings)
-    .set({ status: "in_progress", consumedByRunId: runId })
+    .set({ status: "in_progress", consumedByRunId: runId ?? null })
     .where(and(eq(triageRoutings.id, id), eq(triageRoutings.status, "pending")))
     .returning();
   return row ?? null;

@@ -7,17 +7,18 @@
  * attachments only from `search_assets`.
  */
 import { z } from "zod";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { accounts, assets, contacts, emails, opportunities, products, triageRoutings } from "@/db/schema";
+import { accounts, assets, contacts, emails, opportunities, triageRoutings } from "@/db/schema";
 import { defineAgent } from "@/harness/define-agent";
 import { scopedTool } from "@/harness/tool";
 import { wrapUntrusted } from "@/harness/untrusted";
-import { getCalendarProvider, getErpProvider } from "@/providers";
+import { getCalendarProvider } from "@/providers";
 import { getDemoNow } from "@/lib/demo-clock";
 import { dayBounds } from "@/lib/dates";
 import { MODELS } from "@/lib/ai/models";
 import { getStyleCard, type StyleCard } from "@/lib/style/profile";
+import { checkStock } from "./tools/erp";
 
 const SKU_RE = /MS-[A-Z]{2}-\d{3,4}/g;
 
@@ -61,24 +62,6 @@ const getAccountContext = scopedTool<{ accountId: string }>({
     const people = await db.select({ name: contacts.name, email: contacts.email }).from(contacts).where(eq(contacts.accountId, accountId));
     const opps = await db.select({ name: opportunities.name, stage: opportunities.stage }).from(opportunities).where(eq(opportunities.accountId, accountId)).limit(5);
     return { data: { account, contacts: people, opportunities: opps } };
-  },
-});
-
-const checkStock = scopedTool<{ skus: string[] }>({
-  name: "check_stock",
-  description: "Inventory + lead times via ErpProvider. Emits inventory_row evidence.",
-  effect: "read",
-  inputSchema: z.object({ skus: z.array(z.string()) }),
-  execute: async ({ skus }) => {
-    if (skus.length === 0) return { data: { rows: [] } };
-    const prods = await db.select({ id: products.id, sku: products.sku, name: products.name }).from(products).where(inArray(products.sku, skus));
-    const stock = await getErpProvider().checkStock(prods.map((p) => p.id));
-    const byId = new Map(prods.map((p) => [p.id, p]));
-    const rows = stock.map((s) => ({ sku: byId.get(s.productId)?.sku ?? s.sku, name: byId.get(s.productId)?.name ?? "", available: s.available, onHand: s.onHand, leadTimeDays: s.leadTimeDays }));
-    return {
-      data: { rows },
-      evidence: rows.map((r) => ({ type: "inventory_row" as const, ref: { sku: r.sku }, quote: `${r.sku}: ${r.available > 0 ? `${r.available} on hand` : "low"}, ${r.leadTimeDays}d` })),
-    };
   },
 });
 

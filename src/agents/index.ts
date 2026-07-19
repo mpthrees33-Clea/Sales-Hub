@@ -7,11 +7,13 @@ import type { AgentDef } from "@/harness/define-agent";
 import { smokeAgent } from "./smoke";
 import { emailTriageAgent } from "./email-triage";
 import { emailReplyAgent } from "./email-reply";
+import { quoteAgent } from "./quote";
 
 export const agents: Record<string, AgentDef<any, any>> = {
   smoke: smokeAgent,
   "email-triage": emailTriageAgent,
   "email-reply": emailReplyAgent,
+  quote: quoteAgent,
 };
 
 export function getAgent(name: string) {

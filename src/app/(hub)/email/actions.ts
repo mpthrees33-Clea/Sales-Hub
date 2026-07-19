@@ -30,6 +30,16 @@ export async function draftReplyAction(routingId: string): Promise<{ approvalId:
   return { approvalId: run.approvalIds[0] ?? null, status: run.status };
 }
 
+export async function draftQuoteAction(routingId: string): Promise<{ approvalId: string | null; status: string }> {
+  await requireSession();
+  const { runQuoteFromRouting } = await import("@/lib/quotes");
+  const r = await runQuoteFromRouting(routingId, { trigger: "user" });
+  revalidatePath("/email");
+  revalidatePath("/approvals");
+  revalidatePath("/dashboard");
+  return { approvalId: r.status === "drafted" ? r.approvalId : null, status: r.status };
+}
+
 export async function composeAction(input: {
   to: string[];
   subject?: string;

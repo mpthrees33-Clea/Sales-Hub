@@ -13,7 +13,7 @@ import type { ThreadRow, ThreadDetail } from "@/lib/queries/email";
 import { ThreadList } from "./thread-list";
 import { ThreadView } from "./thread-view";
 import { ComposeDialog, type ContactOption } from "./compose-dialog";
-import { archiveThreadAction, composeAction, draftReplyAction, rerunTriageAction } from "../actions";
+import { archiveThreadAction, composeAction, draftQuoteAction, draftReplyAction, rerunTriageAction } from "../actions";
 
 const FILTERS: { key: string; label: string }[] = [
   { key: "all", label: "All" },
@@ -79,6 +79,15 @@ export function EmailCenter({
     run(async () => {
       const r = await draftReplyAction(routingId);
       flash(r.approvalId ? "Draft ready — review in Approvals" : `Reply ${r.status}`);
+    });
+  };
+
+  const onDraftQuote = () => {
+    const routingId = selected?.routingId;
+    if (!routingId) return;
+    run(async () => {
+      const r = await draftQuoteAction(routingId);
+      flash(r.approvalId ? "Quote drafted — review in Approvals" : `Quote ${r.status}`);
     });
   };
 
@@ -152,7 +161,7 @@ export function EmailCenter({
                 ← threads
               </button>
               <div className="min-h-0 flex-1">
-                <ThreadView detail={selected} busy={pending} onDraftReply={onDraftReply} onRetriage={onRetriage} onArchive={onArchive} />
+                <ThreadView detail={selected} busy={pending} onDraftReply={onDraftReply} onDraftQuote={onDraftQuote} onRetriage={onRetriage} onArchive={onArchive} />
               </div>
             </div>
           ) : (
