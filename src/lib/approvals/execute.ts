@@ -108,6 +108,11 @@ export async function executeApproval(approval: ApprovalRow, ctx: ExecuteCtx): P
     }
 
     case "sample_order": {
+      // Agent/manual path pre-created the pending row → finalize it to ordered.
+      if (typeof p.sampleOrderId === "string") {
+        await db.update(sampleOrders).set({ status: "ordered", orderedAt: ctx.demoNow }).where(eq(sampleOrders.id, p.sampleOrderId));
+        return { provider: "erp", ref: "sample:" + p.sampleOrderId.slice(0, 8) };
+      }
       const items = asArray<Record<string, unknown>>(p.items).map(
         (i): SampleItem => ({ productId: String(i.productId), size: (i.size as SampleItem["size"]) ?? "8x10", qty: typeof i.qty === "number" ? i.qty : 1 }),
       );

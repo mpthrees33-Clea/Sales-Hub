@@ -10,6 +10,7 @@ import { emailReplyAgent } from "./email-reply";
 import { quoteAgent } from "./quote";
 import { poIntakeAgent } from "./po-intake";
 import { meetingFollowupAgent } from "./meeting-followup";
+import { sampleOrderAgent } from "./sample-order";
 
 export const agents: Record<string, AgentDef<any, any>> = {
   smoke: smokeAgent,
@@ -18,6 +19,7 @@ export const agents: Record<string, AgentDef<any, any>> = {
   quote: quoteAgent,
   "po-intake": poIntakeAgent,
   "meeting-followup": meetingFollowupAgent,
+  "sample-order": sampleOrderAgent,
 };
 
 export function getAgent(name: string) {
