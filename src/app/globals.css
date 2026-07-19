@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/*
+  Clea Sales Hub palette (docs/03-DESIGN-SYSTEM.md §1): near-black/near-white
+  neutrals, ONE restrained accent for interactive elements, semantic
+  green/amber/red. Dark is the primary demo mode; light is functional.
+  Defined once, here.
+*/
+:root {
+  --bg: #09090b;
+  --surface: #121215;
+  --surface-2: #1a1a1f;
+  --line: #26262d;
+  --line-strong: #3a3a44;
+  --ink: #ededf0;
+  --ink-muted: #8f8f9a;
+  --ink-faint: #5c5c66;
+  --accent: #7ab8f5;
+  --accent-ink: #0a0a0c;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --ok-dim: rgba(74, 222, 128, 0.12);
+  --warn-dim: rgba(251, 191, 36, 0.12);
+  --danger-dim: rgba(248, 113, 113, 0.12);
+  --accent-dim: rgba(122, 184, 245, 0.12);
+}
+
+html.light {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f2f2f4;
+  --line: #e2e2e6;
+  --line-strong: #c9c9d0;
+  --ink: #17171b;
+  --ink-muted: #63636d;
+  --ink-faint: #9a9aa4;
+  --accent: #1d6fc4;
+  --accent-ink: #ffffff;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --ok-dim: rgba(22, 163, 74, 0.1);
+  --warn-dim: rgba(217, 119, 6, 0.1);
+  --danger-dim: rgba(220, 38, 38, 0.1);
+  --accent-dim: rgba(29, 111, 196, 0.1);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-ok-dim: var(--ok-dim);
+  --color-warn-dim: var(--warn-dim);
+  --color-danger-dim: var(--danger-dim);
+  --color-accent-dim: var(--accent-dim);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin rules + numbered-section aesthetic helpers */
+.rule {
+  border-top: 1px solid var(--line);
+}
+
+/* Focus visibility is a feature (keyboard UX, docs/03 §6) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* Skeleton shimmer */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+.skeleton {
+  background: var(--surface-2);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+/* Accent pulse for running agent status */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.status-running {
+  animation: status-pulse 1.4s ease-in-out infinite;
+}
+
+/* Approval card slide-out (WO-03 approve feedback) */
+@keyframes card-out {
+  to { transform: translateX(24px); opacity: 0; }
+}
+.card-out {
+  animation: card-out 180ms ease-in forwards;
+}
+
+/* Evidence flash highlight (transcript segment deep-links) */
+@keyframes flash-highlight {
+  0% { background: var(--accent-dim); }
+  100% { background: transparent; }
+}
+.flash-highlight {
+  animation: flash-highlight 1.8s ease-out forwards;
+}
+
+/* Ticker marquee */
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker-scroll 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .status-running,
+  .card-out,
+  .flash-highlight,
+  .ticker-track {
+    animation: none !important;
+  }
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbar restraint (instrument panel, not consumer app) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}

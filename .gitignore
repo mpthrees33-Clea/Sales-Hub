@@ -1,0 +1,18 @@
+# deps / build
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# env — secrets never committed; .env.example documents every var
+.env
+.env.local
+.env.*.local
+
+# local blob store (filesystem fallback for Vercel Blob in local dev)
+var/
+
+# misc
+.DS_Store
+coverage/
