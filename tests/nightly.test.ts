@@ -44,13 +44,14 @@ describe("nightly run", () => {
 
     expect(result.counts.triaged).toBe(14);
     expect(result.counts.archived).toBe(3);
-    expect(result.counts.drafts).toBe(7); // 2 quotes + 2 stock + 1 scheduling + 1 technical + 1 meeting follow-up
+    expect(result.counts.drafts).toBe(9); // 2 quotes + 2 stock + 1 scheduling + 1 technical + 1 meeting follow-up + 2 sample confirmations
     expect(result.counts.validatedPo).toBe(1);
     expect(result.counts.escalatedPo).toBe(1);
     expect(result.counts.opportunityUpdates).toBe(3); // incl. Phase 3 __create__ + PO-received stage move
+    expect(result.counts.samples).toBe(2); // low tier, batch-approvable
     // Sample/submittal modules may not be installed yet — visible as skips.
     for (const s of result.skipped) {
-      expect(["sample", "submittal"]).toContain(s.target);
+      expect(["submittal"]).toContain(s.target); // sample module is installed now
       expect(s.reason).toBe("module_not_installed");
     }
 
