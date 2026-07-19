@@ -7,6 +7,8 @@ import type { AgentDef } from "@/harness/define-agent";
 import { emailReplyAgent } from "./email-reply";
 import { emailTriageAgent } from "./email-triage";
 import { meetingFollowupAgent } from "./meeting-followup";
+import { morningBriefAgent } from "./morning-brief";
+import { opportunityUpdateAgent } from "./opportunity-update";
 import { poIntakeAgent } from "./po-intake";
 import { quoteAgent } from "./quote";
 import { smokeAgent } from "./smoke";
@@ -18,6 +20,8 @@ export const agents: Record<string, AgentDef<any, any>> = {
   quote: quoteAgent,
   "po-intake": poIntakeAgent,
   "meeting-followup": meetingFollowupAgent,
+  "opportunity-update": opportunityUpdateAgent,
+  "morning-brief": morningBriefAgent,
 };
 
 export function getAgent(name: string) {

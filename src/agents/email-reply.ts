@@ -119,15 +119,15 @@ const searchAssets = scopedTool({
   execute: async (input) => {
     const q = `%${input.query}%`;
     const assetRows = await db.query.assets.findMany({
-      where: (t, { ilike, or }) => or(ilike(t.title, q), ilike(t.kind, q)),
+      where: (t, { ilike, or, sql }) => or(ilike(t.title, q), sql`${t.kind}::text ilike ${q}`),
       limit: 5,
     });
     const { pdsDocuments } = await import("@/db/schema");
-    const { ilike, or } = await import("drizzle-orm");
+    const { ilike, or, sql } = await import("drizzle-orm");
     const docRows = await db
       .select({ id: pdsDocuments.id, title: pdsDocuments.title, kind: pdsDocuments.kind })
       .from(pdsDocuments)
-      .where(or(ilike(pdsDocuments.title, q), ilike(pdsDocuments.kind, q)))
+      .where(or(ilike(pdsDocuments.title, q), sql`${pdsDocuments.kind}::text ilike ${q}`))
       .limit(8);
     return {
       data: {
