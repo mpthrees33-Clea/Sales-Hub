@@ -67,14 +67,18 @@ import {
   TARGET_INVOICED_WEEK_CENTS,
 } from "./scenario";
 
-const args = process.argv.slice(2);
-const FLAGS = {
-  resetDay: args.includes("--reset-day"),
-  withOvernight: args.includes("--with-overnight"),
-  withApprovals: args.includes("--with-approvals"),
+export type SeedFlags = {
+  resetDay?: boolean;
+  withOvernight?: boolean;
+  withApprovals?: boolean;
 };
 
-async function main() {
+/**
+ * The full deterministic rebuild — truncate + reseed IS the film-day reset
+ * (identical ids/history every run). Importable in-process (demo-control's
+ * reset-day, tests); never closes the shared pool — the CLI wrapper does.
+ */
+export async function runSeed(FLAGS: SeedFlags = {}): Promise<{ ok: boolean; elapsedMs: number }> {
   const t0 = Date.now();
   console.log(`[seed] scenario ${SCENARIO_VERSION}${FLAGS.resetDay ? " (reset-day)" : ""}`);
 
@@ -105,9 +109,7 @@ async function main() {
   if (!check.ok) {
     console.error("[seed] CONSISTENCY CHECK FAILED — fixtures reference entities missing from the DB:");
     for (const m of check.misses) console.error(`  · ${m}`);
-    process.exitCode = 1;
-    await closeDb();
-    return;
+    return { ok: false, elapsedMs: Date.now() - t0 };
   }
   console.log("[seed] consistency check passed");
 
@@ -123,7 +125,7 @@ async function main() {
   }
 
   console.log(`[seed] done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  await closeDb();
+  return { ok: true, elapsedMs: Date.now() - t0 };
 }
 
 async function truncateAll() {
@@ -701,8 +703,22 @@ async function seedTargets() {
   ]);
 }
 
-main().catch(async (err) => {
-  console.error("[seed] failed:", err);
-  process.exitCode = 1;
-  await closeDb();
-});
+// CLI entrypoint (`pnpm seed [--reset-day]`); imports never auto-run.
+const invokedDirectly = (process.argv[1] ?? "").replace(/\\/g, "/").includes("db/seed/index");
+if (invokedDirectly) {
+  const args = process.argv.slice(2);
+  runSeed({
+    resetDay: args.includes("--reset-day"),
+    withOvernight: args.includes("--with-overnight"),
+    withApprovals: args.includes("--with-approvals"),
+  })
+    .then(async (res) => {
+      if (!res.ok) process.exitCode = 1;
+      await closeDb();
+    })
+    .catch(async (err) => {
+      console.error("[seed] failed:", err);
+      process.exitCode = 1;
+      await closeDb();
+    });
+}

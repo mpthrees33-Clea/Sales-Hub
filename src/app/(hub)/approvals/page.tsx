@@ -19,7 +19,7 @@ export default async function ApprovalsPage({
         <div className="flex items-baseline gap-3">
           <h1 className="text-lg font-semibold tracking-tight">Approvals</h1>
           <span className="font-mono text-[11px] text-ink-muted">
-            {queue.length} pending · Drafts only — humans send
+            {queue.length} pending · Human handoff built in · Drafts only — humans send
           </span>
         </div>
         <div className="flex items-center gap-4">
