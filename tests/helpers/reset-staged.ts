@@ -14,6 +14,8 @@ export async function resetStagedBatch(): Promise<void> {
   await db.execute(sql`delete from triage_routings`);
   await db.execute(sql`delete from approvals`);
   await db.execute(sql`delete from quotes where number not in ('Q-1041','Q-1042')`);
+  await db.execute(sql`delete from submittal_packages`); // none are seeded
+  await db.execute(sql`delete from assets where kind = 'submittal'`);
   await db.update(emails).set({ isProcessed: false }).where(inArray(emails.id, emailIds));
   await db
     .update(emailThreads)

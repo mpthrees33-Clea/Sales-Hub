@@ -108,7 +108,51 @@ export async function executeApproval(
       if (pkgId) {
         await db.update(submittalPackages).set({ status: "approved" }).where(eq(submittalPackages.id, pkgId));
       }
-      result = { provider: "erp", ref: pkgId ?? approval.id, description: "submittal package approved" };
+      // WO-14 task 4: the assembled PDF becomes an attachable asset on
+      // approve, then the optional transmittal draft (a SECOND approval,
+      // never a send) can reference it legally through the origin check.
+      let assetNote = "";
+      const blobUrl = typeof payload.outputBlobUrl === "string" ? payload.outputBlobUrl : null;
+      if (pkgId && blobUrl) {
+        const { registerAsset } = await import("@/lib/assets");
+        const { assetId } = await registerAsset({
+          kind: "submittal",
+          title: `${String(payload.packageTitle ?? "Submittal package")} (${String(payload.submittalNumber ?? "")})`.trim(),
+          blobUrl,
+          contentType: "application/pdf",
+          tags: ["submittal"],
+          productIds: Array.isArray(payload.productIds) ? (payload.productIds as string[]) : [],
+          actor: "system",
+        });
+        assetNote = " · registered as attachable asset";
+        const t = payload.transmittal as
+          | { to?: string[]; subject?: string; bodyText?: string; inReplyToEmailId?: string }
+          | undefined;
+        if (Array.isArray(t?.to) && t.to.length > 0) {
+          const { createApprovalRow } = await import("@/harness/approvals");
+          await createApprovalRow({
+            runId: approval.runId,
+            agentName: agentName ?? "submittal",
+            kind: "email_draft",
+            proposedAction: {
+              to: t.to,
+              subject: t.subject ?? "Submittal package",
+              bodyText: t.bodyText ?? "Submittal package attached.",
+              attachmentAssetIds: [assetId],
+              inReplyToEmailId: t.inReplyToEmailId,
+              intent: "submittal_transmittal",
+            },
+            evidence: approval.evidence ?? [],
+            demoNow,
+          });
+          assetNote += " · transmittal draft queued";
+        }
+      }
+      result = {
+        provider: "erp",
+        ref: typeof payload.submittalNumber === "string" ? payload.submittalNumber : (pkgId ?? approval.id),
+        description: `submittal package approved${assetNote}`,
+      };
       break;
     }
     case "scene_send": {

@@ -7,6 +7,7 @@
  * field-level diffs. Generic fallback for scene_send and future kinds.
  */
 import { ArrowRight, CheckCircle2, Clock, Paperclip, XCircle } from "lucide-react";
+import { PdfViewer } from "@/components/pdf-viewer";
 import { Mono, StatusPill } from "@/components/ui";
 import { formatCentsExact } from "@/lib/money";
 import { formatDurationMs } from "@/lib/dates";
@@ -354,6 +355,10 @@ function SubmittalCard({ approval }: { approval: QueueApproval }) {
   const p = approval.proposedAction as {
     projectName?: string;
     packageTitle?: string;
+    submittalNumber?: string;
+    pageCount?: number;
+    outputBlobUrl?: string;
+    transmittal?: { to?: string[] };
     sections?: { sku?: string; productName?: string; docKinds?: string[] }[];
   };
   return (
@@ -361,7 +366,11 @@ function SubmittalCard({ approval }: { approval: QueueApproval }) {
       {escalationBanner(approval)}
       <div>
         <p className="text-[13px] font-medium">{p.packageTitle ?? "Submittal package"}</p>
-        <p className="font-mono text-[11px] text-ink-muted">{p.projectName}</p>
+        <p className="font-mono text-[11px] text-ink-muted">
+          {p.projectName}
+          {p.submittalNumber ? ` · ${p.submittalNumber}` : ""}
+          {p.pageCount ? ` · ${p.pageCount} pages` : ""}
+        </p>
       </div>
       <ol className="space-y-1.5">
         {(p.sections ?? []).map((s, i) => (
@@ -372,6 +381,12 @@ function SubmittalCard({ approval }: { approval: QueueApproval }) {
           </li>
         ))}
       </ol>
+      {p.transmittal?.to?.length ? (
+        <p className="font-mono text-[10px] text-ink-faint">
+          On approve: package registered as attachable asset · transmittal draft queued for {p.transmittal.to.join(", ")}
+        </p>
+      ) : null}
+      {p.outputBlobUrl ? <PdfViewer url={p.outputBlobUrl} className="max-h-[420px]" /> : null}
     </div>
   );
 }

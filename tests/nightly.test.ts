@@ -9,12 +9,13 @@ import { beforeAll, describe, expect, it } from "vitest";
 import "@/lib/load-env";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { agentRuns, agentSteps, approvals, emails, morningBriefs } from "@/db/schema";
+import { agentRuns, agentSteps, approvals, emails, morningBriefs, submittalPackages } from "@/db/schema";
 import { nightlyRun } from "@/app/api/workflows/nightly";
 import { GET as cronGet } from "@/app/api/cron/nightly/route";
 import { dispatchTarget } from "@/lib/nightly-dispatch";
 import { setDemoNow, invalidateDemoClockCache } from "@/lib/demo-clock";
 import { DEMO_NOW } from "@/db/seed/scenario";
+import { sid } from "@/db/seed/ids";
 import { resetStagedBatch } from "./helpers/reset-staged";
 
 beforeAll(async () => {
@@ -49,11 +50,15 @@ describe("nightly run", () => {
     expect(result.counts.escalatedPo).toBe(1);
     expect(result.counts.opportunityUpdates).toBe(3); // incl. Phase 3 __create__ + PO-received stage move
     expect(result.counts.samples).toBe(2); // low tier, batch-approvable
-    // Sample/submittal modules may not be installed yet — visible as skips.
-    for (const s of result.skipped) {
-      expect(["submittal"]).toContain(s.target); // sample module is installed now
-      expect(s.reason).toBe("module_not_installed");
-    }
+    // Every specialist module is installed now — nothing skips.
+    expect(result.skipped).toEqual([]);
+
+    // The submittal routing became a PREPARED builder session, not an
+    // auto-assembled package (WO-14 task 6 — composition is human judgment).
+    const prepared = await db.query.submittalPackages.findMany({ where: eq(submittalPackages.status, "draft") });
+    expect(prepared).toHaveLength(1);
+    expect(prepared[0]!.productIds).toHaveLength(3);
+    expect(prepared[0]!.sourceEmailId).toBe(sid("email:in-submittal-whitaker"));
 
     // Parent run with workflow steps; children linked via workflow_run_id.
     const parent = await db.query.agentRuns.findFirst({ where: eq(agentRuns.id, result.workflowRunId) });
