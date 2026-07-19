@@ -10,6 +10,7 @@ import { ArrowRight, Moon, Sparkles } from "lucide-react";
 import { Button, Card } from "@/components/ui";
 import { formatDurationMs, formatTimeShort } from "@/lib/dates";
 import { overnightSummary } from "@/lib/queries/dashboard";
+import { SimulateOvernightButton } from "./simulate-button";
 
 function Stat({ value, label }: { value: number | string; label: string }) {
   return (
@@ -32,12 +33,10 @@ export async function OvernightBanner() {
           </div>
           <div>
             <p className="text-[13px] font-medium">No overnight run yet</p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              Agents run at 5:00 AM and their work lands here.{" "}
-              <span className="text-ink-faint">Simulate Overnight lands in WO-08.</span>
-            </p>
+            <p className="mt-0.5 text-xs text-ink-muted">Agents run at 5:00 AM — or run the night now.</p>
           </div>
         </div>
+        <SimulateOvernightButton />
       </Card>
     );
   }
