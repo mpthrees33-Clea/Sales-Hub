@@ -10,7 +10,6 @@
     "lint": "eslint src tests scripts",
     "test": "vitest run",
     "test:demo": "vitest run tests/demo-counts.test.ts",
-    "test:demo": "vitest run tests/demo-counts.test.ts",
     "seed": "tsx src/db/seed/index.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
