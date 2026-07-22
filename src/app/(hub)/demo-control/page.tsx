@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { approvals, demoState } from "@/db/schema";
 import { Card, CardHeader, Mono } from "@/components/ui";
 import { formatDemoClock } from "@/lib/dates";
+import { usingLocalBlobStore } from "@/lib/env";
 import { DemoControlClient } from "./control-client";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +32,12 @@ export default async function DemoControlPage() {
 
       <Card>
         <CardHeader n="00" title="Current state" />
-        <dl className="grid grid-cols-2 gap-2 p-4 text-[12px] sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-2 p-4 text-[12px] sm:grid-cols-5">
           <StateCell k="Demo clock" v={state ? formatDemoClock(state.demoNow) : "—"} />
           <StateCell k="DEMO chip" v={state?.showDemoChip ? "visible" : "hidden"} />
           <StateCell k="Nightly ran" v={state?.lastNightlyRunAt ? "yes" : "not yet"} />
           <StateCell k="Pending approvals" v={String(pending[0]?.n ?? 0)} />
+          <StateCell k="Blob storage" v={usingLocalBlobStore ? "LOCAL — not persisted" : "Vercel Blob"} />
         </dl>
       </Card>
 
