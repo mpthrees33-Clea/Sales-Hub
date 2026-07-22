@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BookOpen,
+  Building2,
   FolderCheck,
   Image as ImageIcon,
   Inbox,
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/dashboard", label: "Mission Control", icon: LayoutDashboard },
   { href: "/approvals", label: "Approvals", icon: Inbox, badge: true },
+  { href: "/crm", label: "CRM", icon: Building2 },
   { href: "/email", label: "Email", icon: Mail },
   { href: "/po-intake", label: "PO Intake", icon: ScanText },
   { href: "/meetings", label: "Meetings", icon: Mic },

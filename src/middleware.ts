@@ -9,6 +9,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/session";
 const PROTECTED_PAGES = [
   "/dashboard",
   "/approvals",
+  "/crm",
   "/email",
   "/po-intake",
   "/meetings",
