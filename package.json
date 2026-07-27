@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:demo": "vitest run tests/demo-counts.test.ts",
     "seed": "tsx src/db/seed/index.ts",
+    "eval:triage": "tsx evals/run-triage.ts",
+    "eval:po": "tsx evals/run-po.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "smoke": "tsx scripts/smoke.ts"

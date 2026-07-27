@@ -1,0 +1,17 @@
+{
+  "description": "Golden set for po-intake extraction. Each case points at a seeded PO PDF and its ground-truth extraction JSON (generated from the exact pdf-lib draw positions at seed time — the strongest possible labels). The scorer compares value fields, including expected nulls (tax_cents, notes, line2…) — an invented value for an absent fact counts as a fabrication error, which is the point.",
+  "cases": [
+    {
+      "id": "po-clean",
+      "pdfBlobUrl": "/api/blob/po/PO-88231.pdf",
+      "expectedBlobUrl": "/api/blob/fixtures/po-extract-PO-88231.json",
+      "note": "Clean stock order — extraction should validate straight through the layers."
+    },
+    {
+      "id": "po-mismatch",
+      "pdfBlobUrl": "/api/blob/po/PO-55107.pdf",
+      "expectedBlobUrl": "/api/blob/fixtures/po-extract-PO-55107.json",
+      "note": "References quote Q-1042 with a price mismatch — extraction must transcribe the printed (wrong) numbers verbatim, not correct them."
+    }
+  ]
+}
