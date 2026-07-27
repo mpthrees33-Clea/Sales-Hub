@@ -97,6 +97,9 @@ export const poIntakeAgent = defineAgent({
   name: "po-intake",
   description: "Grounded extraction of a customer PO PDF into strict, page-anchored JSON. Zero tools by design.",
   model: MODELS.pdf,
+  temperature: 0, // verbatim extraction — determinism over creativity
+  maxOutputTokens: 8192, // POs are dense; the extraction JSON is large
+
   inputSchema: z.object({ blobUrl: z.string().min(1), sourceEmailId: z.string().uuid().optional() }),
   outputSchema: poExtraction,
   tools: [], // empty allowlist — trifecta note: it reads untrusted content, so it gets nothing else

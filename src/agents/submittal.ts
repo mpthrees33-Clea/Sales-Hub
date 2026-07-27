@@ -124,6 +124,8 @@ export const submittalAgent = defineAgent({
   name: "submittal",
   description: "Proposes a submittal package composition an architect will accept first pass.",
   model: MODELS.frontier,
+  temperature: 0, // package assembly from document facts — deterministic
+  maxOutputTokens: 2048,
   inputSchema: z.object({
     projectId: z.string().uuid(),
     productIds: z.array(z.string().uuid()).min(1),

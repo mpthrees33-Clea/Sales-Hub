@@ -183,6 +183,8 @@ export const meetingFollowupAgent = defineAgent({
   name: "meeting-followup",
   description: "Turns a diarized meeting transcript into grounded follow-up work — summary, actions, CRM deltas, draft.",
   model: MODELS.frontier,
+  temperature: 0.3, // grounded extraction first, light drafting second
+  maxOutputTokens: 4096,
   inputSchema,
   outputSchema: meetingFollowupOutput,
   tools: [getMeetingContext, searchProducts, erpLookupPricing, erpCheckStock, searchPdsDocuments],

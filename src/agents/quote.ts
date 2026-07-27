@@ -154,6 +154,8 @@ export const quoteAgent = defineAgent({
   name: "quote",
   description: "Turns a quote-request email into a priced, review-ready quote reply draft.",
   model: MODELS.frontier,
+  temperature: 0.3, // mostly deterministic tool work with a short drafted reply
+  maxOutputTokens: 4096,
   inputSchema: z.object({ routingId: z.string().uuid() }),
   outputSchema,
   tools: [getSourceEmail, lookupProducts, checkStock, getPricing, recordQuoteTool, createQuoteReplyDraft],

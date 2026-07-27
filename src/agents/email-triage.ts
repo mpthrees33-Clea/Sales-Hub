@@ -129,6 +129,8 @@ export const emailTriageAgent = defineAgent({
   name: "email-triage",
   description: "Classifies one inbound email metadata-first into a triage category.",
   model: MODELS.fast,
+  temperature: 0, // classification is deterministic — no sampling creativity
+  maxOutputTokens: 512,
   inputSchema: z.object({ emailId: z.string().uuid() }),
   outputSchema: triageOutputSchema,
   tools: [lookupSender, loadEmailBody, archiveThread],

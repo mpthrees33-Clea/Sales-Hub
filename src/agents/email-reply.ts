@@ -180,6 +180,8 @@ export const emailReplyAgent = defineAgent({
   name: "email-reply",
   description: "Drafts tone-matched replies and outbound mail in Cole's voice; drafts only, never sends.",
   model: MODELS.frontier,
+  temperature: 0.7, // drafting in Cole's voice — warmth over determinism
+  maxOutputTokens: 2048,
   inputSchema,
   outputSchema,
   tools: [getThread, getStyleProfile, getAccountContext, checkStock, lookupProducts, getProductDetails, getDocket, searchAssets, createEmailDraft],
