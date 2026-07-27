@@ -12,15 +12,26 @@ import { EscalationError } from "@/harness/errors";
 import { MODELS } from "@/lib/ai/models";
 import { getBlobBuffer } from "@/lib/blob";
 
+/**
+ * Anti-fabrication rule: every model-reported fact is REQUIRED but NULLABLE
+ * (JSON Schema `"type": ["T","null"]`). The model must explicitly assert
+ * absence with null on every field, every time — it cannot silently omit one,
+ * and "fill in something plausible" fails the downstream validators instead of
+ * slipping through. `.optional()` is reserved for code-supplied inputs and
+ * tool-call arguments, where omission is a caller decision.
+ */
 const anchor = z.object({
   page: z.number().int().min(1),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
+  bbox: z
+    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .nullable()
+    .describe("bounding-box page fractions; null when the region cannot be located — never estimate"),
 });
 const anchored = <T extends z.ZodType>(v: T) => z.object({ value: v, anchor });
 const addr = z.object({
   company: z.string(),
   line1: z.string(),
-  line2: z.string().optional(),
+  line2: z.string().nullable().describe("null if the address has no second line — never guess"),
   city: z.string(),
   state: z.string(),
   zip: z.string(),
@@ -33,9 +44,15 @@ export const poExtraction = z
     bill_to: anchored(addr),
     ship_to: anchored(addr),
     buyer_contact: anchored(
-      z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional() }),
+      z.object({
+        name: z.string(),
+        email: z.string().nullable().describe("null if not printed on the PO — never guess"),
+        phone: z.string().nullable().describe("null if not printed on the PO — never guess"),
+      }),
     ),
-    referenced_quote_number: anchored(z.string()).optional(),
+    referenced_quote_number: anchored(z.string())
+      .nullable()
+      .describe("null if the PO references no quote number — never infer one"),
     lines: z
       .array(
         z.object({
@@ -45,7 +62,11 @@ export const poExtraction = z
           qty: z.number(),
           uom: z.string(),
           unit_price_cents: z.number().int(),
-          line_total_cents: z.number().int().optional(),
+          line_total_cents: z
+            .number()
+            .int()
+            .nullable()
+            .describe("null if no extended total is printed for the line — never compute it"),
           page: z.number().int().min(1),
           bbox: anchor.shape.bbox,
         }),
@@ -53,12 +74,12 @@ export const poExtraction = z
       .min(1),
     totals: z.object({
       subtotal_cents: z.number().int(),
-      tax_cents: z.number().int().optional(),
+      tax_cents: z.number().int().nullable().describe("null if no tax line is printed — never compute it"),
       total_cents: z.number().int(),
       page: z.number().int().min(1),
     }),
-    terms: anchored(z.string()).optional(),
-    notes: anchored(z.string()).optional(),
+    terms: anchored(z.string()).nullable().describe("null if no payment terms are printed"),
+    notes: anchored(z.string()).nullable().describe("null if the PO carries no free-text notes"),
   })
   .strict();
 

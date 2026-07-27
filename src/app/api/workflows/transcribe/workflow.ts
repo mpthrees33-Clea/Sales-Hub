@@ -118,7 +118,7 @@ export async function meetingPipeline(
       actionItems: out.action_items.map((a) => ({
         text: a.text,
         owner: a.owner,
-        dueHint: a.due_hint,
+        dueHint: a.due_hint ?? undefined,
         segmentRefs: a.segment_refs,
       })),
     })

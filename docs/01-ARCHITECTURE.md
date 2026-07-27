@@ -215,6 +215,14 @@ Harness behavior (implemented once in WO-01, used by all):
    `<untrusted_content>` delimiters via a single helper; triage runs
    metadata-first; email-reading agents' tool lists contain **no external-effect
    tools** (lethal-trifecta separation) — they end at drafts/approvals.
+7. **Required-but-nullable extraction fields (anti-fabrication)**: every
+   model-reported fact in an output schema is *required* and `.nullable()` —
+   the JSON Schema the model sees carries `"type": ["T","null"]`, so the model
+   must explicitly assert absence with `null` on every field, every time.
+   Silent omission is a schema failure; a fabricated value is caught by the
+   deterministic validators. `.optional()` is reserved for code-supplied
+   inputs and tool-call arguments, where omission is a caller decision, not a
+   claim about the world.
 
 ## 6. Provider pattern (`src/providers/`)
 
