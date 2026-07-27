@@ -108,7 +108,15 @@ export function RunsPanel({ initialOpenRunId }: { initialOpenRunId?: string }) {
 
 function RunDrawer({ runId, onClose }: { runId: string; onClose: () => void }) {
   const [data, setData] = useState<{
-    run: { agentName: string; status: string; model: string | null; tokensIn: number; tokensOut: number; costUsd: string };
+    run: {
+      agentName: string;
+      status: string;
+      model: string | null;
+      tokensIn: number;
+      tokensOut: number;
+      costUsd: string;
+      output?: { pricing?: string } | null;
+    };
     steps: StepRow[];
   } | null>(null);
   const [missing, setMissing] = useState(false);
@@ -165,6 +173,9 @@ function RunDrawer({ runId, onClose }: { runId: string; onClose: () => void }) {
                   · {data.run.tokensIn}/{data.run.tokensOut} tok
                 </span>
                 <span>· ${Number(data.run.costUsd).toFixed(4)}</span>
+                {data.run.output?.pricing === "batch" ? (
+                  <span className="rounded bg-surface2 px-1.5 py-0.5 text-accent">batch −50%</span>
+                ) : null}
               </div>
               <RunTrace steps={data.steps} />
             </>

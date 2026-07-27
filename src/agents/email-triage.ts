@@ -75,7 +75,7 @@ const archiveThread = scopedTool({
   },
 });
 
-const outputSchema = z.object({
+export const triageOutputSchema = z.object({
   category: z.enum([
     "quote_request",
     "stock_check",
@@ -91,10 +91,10 @@ const outputSchema = z.object({
   usedBody: z.boolean(),
 });
 
-export type TriageOutput = z.infer<typeof outputSchema>;
+export type TriageOutput = z.infer<typeof triageOutputSchema>;
 
 /** Metadata-first heuristics shared by the demo script (and finalize sanity). */
-function classifyFromMetadata(subject: string, senderKnown: boolean, hasPdf: boolean): { category: TriageCategory; confidence: number } | null {
+export function classifyFromMetadata(subject: string, senderKnown: boolean, hasPdf: boolean): { category: TriageCategory; confidence: number } | null {
   const s = subject.toLowerCase();
   if (!senderKnown) return { category: "noise", confidence: 0.93 };
   if (hasPdf && (s.includes("po ") || s.startsWith("po") || s.includes("purchase order"))) {
@@ -130,7 +130,7 @@ export const emailTriageAgent = defineAgent({
   description: "Classifies one inbound email metadata-first into a triage category.",
   model: MODELS.fast,
   inputSchema: z.object({ emailId: z.string().uuid() }),
-  outputSchema,
+  outputSchema: triageOutputSchema,
   tools: [lookupSender, loadEmailBody, archiveThread],
   maxSteps: 6,
   systemPrompt: () =>
@@ -197,7 +197,20 @@ export async function runTriageForEmail(
     return { result, routingId: null };
   }
 
-  const out = result.output;
+  const routingId = await finalizeTriage(email, result.output);
+  return { result, routingId };
+}
+
+/**
+ * The deterministic half of triage, shared verbatim by the serial agent path
+ * and the batch path — the routing decision is code either way; the model
+ * only classifies.
+ */
+export async function finalizeTriage(
+  email: typeof emails.$inferSelect,
+  out: TriageOutput,
+): Promise<string | null> {
+  const emailId = email.id;
   const lowConfidence = out.confidence < 0.5;
   const category = out.category;
   const target = lowConfidence ? "none" : categoryToTarget(category);
@@ -242,7 +255,7 @@ export async function runTriageForEmail(
     occurredAt: email.receivedAt,
   });
 
-  return { result, routingId: routing?.id ?? null };
+  return routing?.id ?? null;
 }
 
 async function accountIdForSender(fromEmail: string): Promise<string | null> {

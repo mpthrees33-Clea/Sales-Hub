@@ -15,12 +15,14 @@ import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { morningBriefAgent, type BriefPayload } from "@/agents/morning-brief";
 import { opportunityUpdateAgent } from "@/agents/opportunity-update";
 import { runTriageForEmail } from "@/agents/email-triage";
+import { batchTriageEmails } from "@/agents/email-triage-batch";
 import { db } from "@/db/client";
 import { approvals, contacts, demoState, emails, meetings, morningBriefs, transcripts } from "@/db/schema";
 import { RunRecorder } from "@/harness/run-recorder";
 import { audit } from "@/lib/audit";
 import { dayBounds, formatTimeShort, repDateKey, yesterdayBounds } from "@/lib/dates";
 import { getDemoNow } from "@/lib/demo-clock";
+import { batchApiEnabled } from "@/lib/ai/anthropic-batch";
 import { dispatchTarget, type DispatchOutcome } from "@/lib/nightly-dispatch";
 import { kpis } from "@/lib/queries/dashboard";
 import { getCalendarProvider, getEmailProvider } from "@/providers";
@@ -67,10 +69,18 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
     const inbox = await getEmailProvider().listNewMessages(since ?? new Date(0));
     await step("syncInbox", async () => ({ newMessages: inbox.length }));
 
-    // 2. triageAll — one granular, retry-safe run per message.
+    // 2. triageAll — Message Batches when a direct Anthropic key is present
+    //    (50% token cost; triage is single-shot classification, the canonical
+    //    batch workload), else one granular, retry-safe serial run per message.
     let triaged = 0;
     let archived = 0;
     await step("triageAll", async () => {
+      if (batchApiEnabled && inbox.length > 0) {
+        const r = await batchTriageEmails(inbox.map((m) => m.id), { workflowRunId });
+        triaged = r.triaged;
+        archived = r.archived;
+        return { triaged, archived, mode: "anthropic-batch", batchId: r.batchId, fellBackSerial: r.fellBackSerial };
+      }
       for (const msg of inbox) {
         const { result } = await runTriageForEmail(msg.id, { trigger: "nightly", workflowRunId });
         if (result.status === "succeeded") {
@@ -78,7 +88,7 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
           if (result.output?.category === "noise") archived += 1;
         }
       }
-      return { triaged, archived };
+      return { triaged, archived, mode: "serial" };
     });
 
     // 3. fanOut — registry dispatch per target; unmerged modules skip.

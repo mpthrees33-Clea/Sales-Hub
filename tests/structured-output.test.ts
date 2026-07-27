@@ -37,7 +37,7 @@ describe("buildSubmitResultTool — the schema the model actually sees", () => {
   });
 
   it("captures the submitted args and acknowledges", async () => {
-    const result = await (tool as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute(
+    const result = await (tool as unknown as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute(
       { fake: true },
       {},
     );

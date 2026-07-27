@@ -6,10 +6,12 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { agentRuns, agentSteps } from "@/db/schema";
-import { DEMO_MODEL_ID, MODEL_PRICING_PER_MTOK } from "@/lib/ai/models";
+import { BATCH_DISCOUNT, DEMO_MODEL_ID, MODEL_PRICING_PER_MTOK } from "@/lib/ai/models";
 
 export type StepKind = "llm_call" | "tool_call" | "validation" | "escalation" | "workflow_step";
 export type RunTriggerKind = "nightly" | "user" | "workflow" | "system";
+/** "batch" ⇒ tokens were processed via Message Batches at 50% of standard price. */
+export type PricingMode = "standard" | "batch";
 
 export type StepEvent = {
   seq: number;
@@ -25,12 +27,20 @@ export class RunRecorder {
   private tokensIn = 0;
   private tokensOut = 0;
   private model: string;
+  private pricingMode: PricingMode;
   private onStep?: (e: StepEvent) => void;
 
-  private constructor(runId: string, agentName: string, model: string, onStep?: (e: StepEvent) => void) {
+  private constructor(
+    runId: string,
+    agentName: string,
+    model: string,
+    pricingMode: PricingMode,
+    onStep?: (e: StepEvent) => void,
+  ) {
     this.runId = runId;
     this.agentName = agentName;
     this.model = model;
+    this.pricingMode = pricingMode;
     this.onStep = onStep;
   }
 
@@ -41,6 +51,7 @@ export class RunRecorder {
     model: string;
     workflowRunId?: string;
     dedupKey?: string;
+    pricingMode?: PricingMode;
     onStep?: (e: StepEvent) => void;
   }): Promise<RunRecorder> {
     const [row] = await db
@@ -55,7 +66,7 @@ export class RunRecorder {
         dedupKey: opts.dedupKey,
       })
       .returning({ id: agentRuns.id });
-    return new RunRecorder(row!.id, opts.agentName, opts.model, opts.onStep);
+    return new RunRecorder(row!.id, opts.agentName, opts.model, opts.pricingMode ?? "standard", opts.onStep);
   }
 
   async step(entry: {
@@ -84,7 +95,8 @@ export class RunRecorder {
 
   costUsd(): number {
     const pricing = MODEL_PRICING_PER_MTOK[this.model] ?? MODEL_PRICING_PER_MTOK[DEMO_MODEL_ID]!;
-    return (this.tokensIn * pricing.in + this.tokensOut * pricing.out) / 1_000_000;
+    const discount = this.pricingMode === "batch" ? BATCH_DISCOUNT : 1;
+    return ((this.tokensIn * pricing.in + this.tokensOut * pricing.out) * discount) / 1_000_000;
   }
 
   async finalize(opts: {
@@ -95,7 +107,8 @@ export class RunRecorder {
       .update(agentRuns)
       .set({
         status: opts.status,
-        output: opts.output,
+        output:
+          this.pricingMode === "batch" ? { ...(opts.output ?? {}), pricing: "batch" } : opts.output,
         tokensIn: this.tokensIn,
         tokensOut: this.tokensOut,
         costUsd: this.costUsd().toFixed(6),
