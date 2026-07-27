@@ -71,6 +71,7 @@ export type AgentDef<In, Out> = {
   tools: ScopedTool[];
   maxSteps: number;
   systemPrompt: (ctx: RunCtx) => string;
+  buildUserContent?: (input: In) => Promise<unknown>;
   run: (input: In, opts: RunOpts) => Promise<AgentRunResult<Out>>;
 };
 
@@ -331,6 +332,7 @@ export function defineAgent<In, Out>(cfg: {
     tools: cfg.tools,
     maxSteps,
     systemPrompt: cfg.systemPrompt,
+    buildUserContent: cfg.buildUserContent,
     run,
   };
 }

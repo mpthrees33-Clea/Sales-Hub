@@ -191,8 +191,11 @@ export const meetingFollowupAgent = defineAgent({
     ].join("\n"),
   buildUserContent: async (input) => {
     const text = input.transcript.map((s, i) => `[${i}] ${s.speaker}: ${s.text}`).join("\n");
+    // Long-context ordering: the (potentially long) transcript goes first, the
+    // task instruction last, where model attention is strongest.
     return [
-      { type: "text" as const, text: `Meeting id: ${input.meetingId}\n\n${wrapUntrusted(text, { source: `transcript:${input.meetingId}`, maxChars: 24_000 })}` },
+      { type: "text" as const, text: wrapUntrusted(text, { source: `transcript:${input.meetingId}`, maxChars: 24_000 }) },
+      { type: "text" as const, text: `Meeting id: ${input.meetingId}. Produce the grounded follow-up output for the transcript above.` },
     ];
   },
   demoScript: async ({ input, tools }) => {

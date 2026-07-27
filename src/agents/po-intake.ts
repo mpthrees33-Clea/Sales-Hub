@@ -88,9 +88,12 @@ export const poIntakeAgent = defineAgent({
     ].join("\n"),
   buildUserContent: async (input) => {
     const bytes = await getBlobBuffer(input.blobUrl);
+    // Long-context ordering: document first, instruction last. Models attend
+    // most reliably to the start and end of the prompt, so the query after the
+    // document keeps extraction grounded (Anthropic long-context guidance).
     return [
-      { type: "text" as const, text: "Extract this purchase order into the required JSON schema." },
       { type: "file" as const, data: bytes, mediaType: "application/pdf" },
+      { type: "text" as const, text: "Extract the purchase order above into the required JSON schema." },
     ];
   },
   demoScript: async ({ input }) => {
