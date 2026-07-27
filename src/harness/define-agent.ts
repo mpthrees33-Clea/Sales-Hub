@@ -21,7 +21,7 @@
  * tool wrappers, interception, recording, and schema validation; only the
  * "thinking" is scripted. Demo mode is first-class (docs/00 §3).
  */
-import { generateText, stepCountIs, tool as aiTool, zodSchema } from "ai";
+import { generateText, hasToolCall, stepCountIs, tool as aiTool, zodSchema } from "ai";
 import type { z } from "zod";
 import type { Evidence } from "@/db/schema";
 import { DEMO_MODEL_ID } from "@/lib/ai/models";
@@ -284,6 +284,8 @@ export function defineAgent<In, Out>(cfg: {
 
     async function runLiveLoop(): Promise<unknown> {
       const t0 = Date.now();
+      let submitted: unknown;
+      let submittedCalled = false;
       const tools = Object.fromEntries(
         cfg.tools.map((t) => [
           t.name,
@@ -294,9 +296,17 @@ export function defineAgent<In, Out>(cfg: {
           }),
         ]),
       );
+      // Structured output via tool use: the agent's output schema — null
+      // unions, descriptions and all — is transmitted to the model as this
+      // tool's inputSchema, so JSON is enforced at generation time instead of
+      // being scraped out of free text afterwards.
+      tools.submit_result = buildSubmitResultTool(cfg.outputSchema, (args) => {
+        submitted = args;
+        submittedCalled = true;
+      }) as unknown as (typeof tools)[string];
       const system =
         cfg.systemPrompt({ demoNow, trigger: opts.trigger }) +
-        "\n\nWhen you are done, output ONLY a single JSON object matching the required output schema — no prose around it.";
+        "\n\nWhen you are done, call the submit_result tool exactly once with your final output. Do not print the result as prose.";
       const userContent = cfg.buildUserContent ? await cfg.buildUserContent(input) : null;
       const result = await generateText({
         model: cfg.model,
@@ -305,7 +315,9 @@ export function defineAgent<In, Out>(cfg: {
           ? { messages: [{ role: "user" as const, content: userContent as never }] }
           : { prompt: `Input:\n${JSON.stringify(input, null, 2)}` }),
         tools,
-        stopWhen: stepCountIs(maxSteps),
+        // +1 leaves room for the submit_result call itself, so single-shot
+        // agents (maxSteps: 1) still get their one working step.
+        stopWhen: [stepCountIs(maxSteps + 1), hasToolCall("submit_result")],
       });
       for (const step of result.steps) {
         await recorder.step({
@@ -319,7 +331,9 @@ export function defineAgent<In, Out>(cfg: {
         });
       }
       void t0;
-      return extractJson(result.text);
+      // Fallback: a model that answered in prose instead of calling the tool
+      // still gets one parse attempt before parse-or-escalate applies.
+      return submittedCalled ? submitted : extractJson(result.text);
     }
   }
 
@@ -335,6 +349,23 @@ export function defineAgent<In, Out>(cfg: {
     buildUserContent: cfg.buildUserContent,
     run,
   };
+}
+
+/**
+ * The structured-output tool: its inputSchema IS the agent's output schema,
+ * so the model receives the full JSON Schema (required-but-nullable unions
+ * included) and "returns" its answer by calling the tool. Exported for tests.
+ */
+export function buildSubmitResultTool(outputSchema: z.ZodType<unknown>, capture: (args: unknown) => void) {
+  return aiTool({
+    description:
+      "Submit your final answer. Call exactly once when done; the input IS the run output and must satisfy the schema.",
+    inputSchema: zodSchema(outputSchema),
+    execute: async (args: unknown) => {
+      capture(args);
+      return { accepted: true };
+    },
+  });
 }
 
 /** Pull the final JSON object out of model text (fenced or bare). */

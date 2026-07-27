@@ -56,8 +56,11 @@ export const poExtraction = z
     lines: z
       .array(
         z.object({
+          // `resolved` is deliberately NOT in this schema: .strict() rejects it
+          // if the model emits one, and layer 2 fills {product_id, sku, method}
+          // after validation. (z.undefined() would compile to an unsatisfiable
+          // {"not":{}} in the model-facing JSON Schema.)
           raw_sku_text: z.string().min(1),
-          resolved: z.undefined(), // layer 2 fills {product_id, sku, method}; model MUST leave absent
           description: z.string(),
           qty: z.number(),
           uom: z.string(),
@@ -86,7 +89,7 @@ export const poExtraction = z
 export type PoExtraction = z.infer<typeof poExtraction>;
 
 /** Layer 2 writes resolution into the stored extraction. */
-export type ResolvedPoLine = Omit<PoExtraction["lines"][number], "resolved"> & {
+export type ResolvedPoLine = PoExtraction["lines"][number] & {
   resolved?: { product_id: string; sku: string; method: "exact" | "normalized" };
 };
 
