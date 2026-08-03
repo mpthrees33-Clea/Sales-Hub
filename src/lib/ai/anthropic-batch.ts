@@ -29,9 +29,19 @@ export type BatchItemResult =
 
 export type BatchOutcome = { batchId: string; results: BatchItemResult[] };
 
-type BatchClient = Pick<Anthropic["messages"]["batches"], "create" | "retrieve" | "results">;
+type BatchClient = Pick<Anthropic["messages"]["batches"], "create" | "retrieve" | "results" | "cancel">;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Serverless caveat: a Message Batch is ASYNC — Anthropic promises completion
+ * within 24h (usually minutes), but a Vercel function can only wait
+ * maxDuration seconds. The wait budget must fit the host: on timeout the
+ * batch is CANCELLED (so it doesn't bill later for work we redo) and the
+ * caller degrades to serial calls. The long-term shape is submit-now /
+ * collect-later across two invocations.
+ */
+export const DEFAULT_BATCH_WAIT_MS = Number(env.BATCH_WAIT_MS || 90_000);
 
 /**
  * Submit → poll until ended → collect. Results stream back in ARBITRARY
@@ -44,7 +54,7 @@ export async function runMessageBatch(
 ): Promise<BatchOutcome> {
   const client = opts?.client ?? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }).messages.batches;
   const pollMs = opts?.pollMs ?? 5_000;
-  const timeoutMs = opts?.timeoutMs ?? 30 * 60_000;
+  const timeoutMs = opts?.timeoutMs ?? DEFAULT_BATCH_WAIT_MS;
 
   const batch = await client.create({
     requests: reqs.map((r) => ({
@@ -62,7 +72,12 @@ export async function runMessageBatch(
   let status = batch.processing_status;
   while (status !== "ended") {
     if (Date.now() > deadline) {
-      throw new Error(`message batch ${batch.id} did not finish within ${timeoutMs}ms (status: ${status})`);
+      try {
+        await client.cancel(batch.id);
+      } catch {
+        // cancellation is best-effort; the timeout error is what matters
+      }
+      throw new Error(`message batch ${batch.id} did not finish within ${timeoutMs}ms (status: ${status}); cancelled`);
     }
     await sleep(pollMs);
     status = (await client.retrieve(batch.id)).processing_status;

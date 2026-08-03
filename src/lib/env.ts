@@ -18,6 +18,12 @@ const schema = z.object({
    * nightly triage sweep (50% token cost). Empty ⇒ serial gateway calls.
    */
   ANTHROPIC_API_KEY: z.string().default(""),
+  /**
+   * How long the nightly may wait for a Message Batch before cancelling it
+   * and degrading to serial calls (ms). Must fit inside the serverless
+   * function's maxDuration alongside the rest of the night.
+   */
+  BATCH_WAIT_MS: z.string().default(""),
   /** Empty ⇒ blobs stored on local filesystem under var/blob, served at /api/blob. */
   BLOB_READ_WRITE_TOKEN: z.string().default(""),
   DEMO_MODE: boolString,

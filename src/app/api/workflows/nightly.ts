@@ -76,10 +76,25 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
     let archived = 0;
     await step("triageAll", async () => {
       if (batchApiEnabled && inbox.length > 0) {
-        const r = await batchTriageEmails(inbox.map((m) => m.id), { workflowRunId });
-        triaged = r.triaged;
-        archived = r.archived;
-        return { triaged, archived, mode: "anthropic-batch", batchId: r.batchId, fellBackSerial: r.fellBackSerial };
+        try {
+          const r = await batchTriageEmails(inbox.map((m) => m.id), { workflowRunId });
+          triaged = r.triaged;
+          archived = r.archived;
+          return { triaged, archived, mode: "anthropic-batch", batchId: r.batchId, fellBackSerial: r.fellBackSerial };
+        } catch (err) {
+          // Batch didn't finish inside the wait budget (serverless maxDuration
+          // caps how long we can poll) or failed outright — the batch is
+          // cancelled upstream; degrade to serial and keep the night moving.
+          const note = err instanceof Error ? err.message : String(err);
+          for (const msg of inbox) {
+            const { result } = await runTriageForEmail(msg.id, { trigger: "nightly", workflowRunId });
+            if (result.status === "succeeded") {
+              triaged += 1;
+              if (result.output?.category === "noise") archived += 1;
+            }
+          }
+          return { triaged, archived, mode: "serial-after-batch-timeout", note };
+        }
       }
       for (const msg of inbox) {
         const { result } = await runTriageForEmail(msg.id, { trigger: "nightly", workflowRunId });

@@ -6,7 +6,7 @@
  */
 import "@/lib/load-env";
 import { desc, eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildTriagePrompt } from "@/agents/email-triage-batch";
 import { db } from "@/db/client";
 import { emails } from "@/db/schema";
@@ -63,6 +63,26 @@ describe("runMessageBatch", () => {
     // one request per item went up, in our order
     const sent = (client.calls[0] as { requests: { custom_id: string }[] }).requests.map((r) => r.custom_id);
     expect(sent).toEqual(["email-A", "email-B", "email-C"]);
+  });
+});
+
+describe("batch wait budget", () => {
+  it("cancels a batch that outlives the budget and throws (caller degrades to serial)", async () => {
+    const cancel = vi.fn(async () => ({}));
+    const client = {
+      create: async () => ({ id: "msgbatch_slow", processing_status: "in_progress" }),
+      retrieve: async () => ({ id: "msgbatch_slow", processing_status: "in_progress" }),
+      results: async () => (async function* () {})(),
+      cancel,
+    };
+    await expect(
+      runMessageBatch("claude-haiku-4-5", [{ customId: "a", system: "s", user: "u" }], {
+        client: client as never,
+        pollMs: 1,
+        timeoutMs: 5,
+      }),
+    ).rejects.toThrow(/did not finish within .*cancelled/);
+    expect(cancel).toHaveBeenCalledWith("msgbatch_slow");
   });
 });
 
