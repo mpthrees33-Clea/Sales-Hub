@@ -69,6 +69,28 @@ export class RunRecorder {
     return new RunRecorder(row!.id, opts.agentName, opts.model, opts.pricingMode ?? "standard", opts.onStep);
   }
 
+  /**
+   * Adopt an existing run (crash resume). Continues the same agent_runs row:
+   * step seq continues after the last recorded step, prior token totals carry
+   * into cost, and the status flips back to running.
+   */
+  static async resume(runId: string, opts?: { onStep?: (e: StepEvent) => void }): Promise<RunRecorder> {
+    const row = await db.query.agentRuns.findFirst({ where: eq(agentRuns.id, runId) });
+    if (!row) throw new Error(`run ${runId} not found`);
+    const [last] = await db
+      .select({ seq: agentSteps.seq })
+      .from(agentSteps)
+      .where(eq(agentSteps.runId, runId))
+      .orderBy(sql`${agentSteps.seq} desc`)
+      .limit(1);
+    const recorder = new RunRecorder(row.id, row.agentName, row.model ?? DEMO_MODEL_ID, "standard", opts?.onStep);
+    recorder.seq = last?.seq ?? 0;
+    recorder.tokensIn = row.tokensIn;
+    recorder.tokensOut = row.tokensOut;
+    await db.update(agentRuns).set({ status: "running", finishedAt: null }).where(eq(agentRuns.id, runId));
+    return recorder;
+  }
+
   async step(entry: {
     kind: StepKind;
     name: string;

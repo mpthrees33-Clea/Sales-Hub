@@ -94,6 +94,24 @@ describe("nightly run", () => {
     expect(await db.$count(approvals)).toBe(before);
   });
 
+  it("a crashed night is ADOPTED and resumed duplicate-free (same run, no new approvals)", async () => {
+    // Simulate a serverless-timeout death: parent marked failed mid-flight.
+    const parent = await db.query.agentRuns.findFirst({ where: isNotNull(agentRuns.dedupKey) });
+    expect(parent).toBeTruthy();
+    await db.update(agentRuns).set({ status: "failed", finishedAt: null }).where(eq(agentRuns.id, parent!.id));
+    await db.execute(sql`delete from morning_briefs`);
+
+    const before = await db.$count(approvals);
+    const result = await nightlyRun({ trigger: "simulate" });
+    expect(result.status).toBe("completed");
+    if (result.status !== "completed") return;
+    // Same parent run resumed — not a new one.
+    expect(result.workflowRunId).toBe(parent!.id);
+    // Idempotent steps: nothing re-proposed, brief re-persisted exactly once.
+    expect(await db.$count(approvals)).toBe(before);
+    expect(await db.$count(morningBriefs)).toBe(1);
+  });
+
   it("dispatching a target with no pending routings reports empty (not failure)", async () => {
     const outcomes = await dispatchTarget("quote", { workflowRunId: "test" });
     expect(outcomes).toEqual([{ target: "quote", status: "empty" }]);
