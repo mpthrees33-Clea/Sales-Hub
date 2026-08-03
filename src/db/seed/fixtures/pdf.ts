@@ -322,6 +322,7 @@ export async function makePoPdf(input: PoFixtureInput): Promise<{ bytes: Uint8Ar
       value: {
         company: input.company,
         line1: input.companyAddress.line1,
+        line2: null,
         city: input.companyAddress.city,
         state: input.companyAddress.state,
         zip: input.companyAddress.zip,
@@ -332,6 +333,7 @@ export async function makePoPdf(input: PoFixtureInput): Promise<{ bytes: Uint8Ar
       value: {
         company: input.shipToLabel ?? `${input.company} Warehouse`,
         line1: input.companyAddress.line1,
+        line2: null,
         city: input.companyAddress.city,
         state: input.companyAddress.state,
         zip: input.companyAddress.zip,
@@ -339,12 +341,13 @@ export async function makePoPdf(input: PoFixtureInput): Promise<{ bytes: Uint8Ar
       anchor: anchors.ship_to,
     },
     buyer_contact: {
-      value: { name: input.buyer.name, email: input.buyer.email, phone: input.buyer.phone },
+      value: { name: input.buyer.name, email: input.buyer.email, phone: input.buyer.phone ?? null },
       anchor: anchors.buyer_contact,
     },
-    ...(input.referencedQuote
-      ? { referenced_quote_number: { value: input.referencedQuote, anchor: anchors.referenced_quote_number } }
-      : {}),
+    // Required-but-nullable extraction contract: absent facts are explicit nulls.
+    referenced_quote_number: input.referencedQuote
+      ? { value: input.referencedQuote, anchor: anchors.referenced_quote_number }
+      : null,
     lines: input.lines.map((l, i) => ({
       raw_sku_text: l.sku,
       description: `${l.name} architectural film`,
@@ -353,10 +356,11 @@ export async function makePoPdf(input: PoFixtureInput): Promise<{ bytes: Uint8Ar
       unit_price_cents: l.unitPriceCents,
       line_total_cents: l.qty * l.unitPriceCents,
       page: 1,
-      bbox: lineAnchors[i]!.bbox,
+      bbox: lineAnchors[i]!.bbox ?? null,
     })),
-    totals: { subtotal_cents: subtotal, total_cents: subtotal, page: totalsAnchor.page },
+    totals: { subtotal_cents: subtotal, tax_cents: null, total_cents: subtotal, page: totalsAnchor.page },
     terms: { value: input.terms, anchor: anchors.terms },
+    notes: null,
   };
 
   return { bytes, extraction };

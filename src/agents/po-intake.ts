@@ -12,15 +12,26 @@ import { EscalationError } from "@/harness/errors";
 import { MODELS } from "@/lib/ai/models";
 import { getBlobBuffer } from "@/lib/blob";
 
+/**
+ * Anti-fabrication rule: every model-reported fact is REQUIRED but NULLABLE
+ * (JSON Schema `"type": ["T","null"]`). The model must explicitly assert
+ * absence with null on every field, every time — it cannot silently omit one,
+ * and "fill in something plausible" fails the downstream validators instead of
+ * slipping through. `.optional()` is reserved for code-supplied inputs and
+ * tool-call arguments, where omission is a caller decision.
+ */
 const anchor = z.object({
   page: z.number().int().min(1),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
+  bbox: z
+    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .nullable()
+    .describe("bounding-box page fractions; null when the region cannot be located — never estimate"),
 });
 const anchored = <T extends z.ZodType>(v: T) => z.object({ value: v, anchor });
 const addr = z.object({
   company: z.string(),
   line1: z.string(),
-  line2: z.string().optional(),
+  line2: z.string().nullable().describe("null if the address has no second line — never guess"),
   city: z.string(),
   state: z.string(),
   zip: z.string(),
@@ -33,19 +44,32 @@ export const poExtraction = z
     bill_to: anchored(addr),
     ship_to: anchored(addr),
     buyer_contact: anchored(
-      z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional() }),
+      z.object({
+        name: z.string(),
+        email: z.string().nullable().describe("null if not printed on the PO — never guess"),
+        phone: z.string().nullable().describe("null if not printed on the PO — never guess"),
+      }),
     ),
-    referenced_quote_number: anchored(z.string()).optional(),
+    referenced_quote_number: anchored(z.string())
+      .nullable()
+      .describe("null if the PO references no quote number — never infer one"),
     lines: z
       .array(
         z.object({
+          // `resolved` is deliberately NOT in this schema: .strict() rejects it
+          // if the model emits one, and layer 2 fills {product_id, sku, method}
+          // after validation. (z.undefined() would compile to an unsatisfiable
+          // {"not":{}} in the model-facing JSON Schema.)
           raw_sku_text: z.string().min(1),
-          resolved: z.undefined(), // layer 2 fills {product_id, sku, method}; model MUST leave absent
           description: z.string(),
           qty: z.number(),
           uom: z.string(),
           unit_price_cents: z.number().int(),
-          line_total_cents: z.number().int().optional(),
+          line_total_cents: z
+            .number()
+            .int()
+            .nullable()
+            .describe("null if no extended total is printed for the line — never compute it"),
           page: z.number().int().min(1),
           bbox: anchor.shape.bbox,
         }),
@@ -53,19 +77,19 @@ export const poExtraction = z
       .min(1),
     totals: z.object({
       subtotal_cents: z.number().int(),
-      tax_cents: z.number().int().optional(),
+      tax_cents: z.number().int().nullable().describe("null if no tax line is printed — never compute it"),
       total_cents: z.number().int(),
       page: z.number().int().min(1),
     }),
-    terms: anchored(z.string()).optional(),
-    notes: anchored(z.string()).optional(),
+    terms: anchored(z.string()).nullable().describe("null if no payment terms are printed"),
+    notes: anchored(z.string()).nullable().describe("null if the PO carries no free-text notes"),
   })
   .strict();
 
 export type PoExtraction = z.infer<typeof poExtraction>;
 
 /** Layer 2 writes resolution into the stored extraction. */
-export type ResolvedPoLine = Omit<PoExtraction["lines"][number], "resolved"> & {
+export type ResolvedPoLine = PoExtraction["lines"][number] & {
   resolved?: { product_id: string; sku: string; method: "exact" | "normalized" };
 };
 
@@ -73,6 +97,9 @@ export const poIntakeAgent = defineAgent({
   name: "po-intake",
   description: "Grounded extraction of a customer PO PDF into strict, page-anchored JSON. Zero tools by design.",
   model: MODELS.pdf,
+  temperature: 0, // verbatim extraction — determinism over creativity
+  maxOutputTokens: 8192, // POs are dense; the extraction JSON is large
+
   inputSchema: z.object({ blobUrl: z.string().min(1), sourceEmailId: z.string().uuid().optional() }),
   outputSchema: poExtraction,
   tools: [], // empty allowlist — trifecta note: it reads untrusted content, so it gets nothing else
@@ -88,9 +115,12 @@ export const poIntakeAgent = defineAgent({
     ].join("\n"),
   buildUserContent: async (input) => {
     const bytes = await getBlobBuffer(input.blobUrl);
+    // Long-context ordering: document first, instruction last. Models attend
+    // most reliably to the start and end of the prompt, so the query after the
+    // document keeps extraction grounded (Anthropic long-context guidance).
     return [
-      { type: "text" as const, text: "Extract this purchase order into the required JSON schema." },
       { type: "file" as const, data: bytes, mediaType: "application/pdf" },
+      { type: "text" as const, text: "Extract the purchase order above into the required JSON schema." },
     ];
   },
   demoScript: async ({ input }) => {

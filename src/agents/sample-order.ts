@@ -171,6 +171,8 @@ export const sampleOrderAgent = defineAgent({
   name: "sample-order",
   description: "Converts a sample-request email into an approvable order + confirmation draft.",
   model: MODELS.frontier,
+  temperature: 0, // order assembly from catalog facts — deterministic
+  maxOutputTokens: 2048,
   inputSchema: z.object({ threadId: z.string().uuid(), emailId: z.string().uuid() }),
   outputSchema,
   tools: [getEmail, lookupContact, resolveSku, checkInventory, proposeSampleOrder, draftConfirmationEmail],

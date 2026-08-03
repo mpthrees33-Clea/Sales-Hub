@@ -11,11 +11,14 @@
     "test": "vitest run",
     "test:demo": "vitest run tests/demo-counts.test.ts",
     "seed": "tsx src/db/seed/index.ts",
+    "eval:triage": "tsx evals/run-triage.ts",
+    "eval:po": "tsx evals/run-po.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@date-fns/tz": "^1.2.0",
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/blob": "^0.27.0",

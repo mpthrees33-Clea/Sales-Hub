@@ -414,7 +414,7 @@ export async function finalizePo(args: {
 
 function buildFieldEvidence(extraction: PoExtraction, blobUrl: string, poId: string) {
   const items: { type: "pdf_page"; ref: Record<string, unknown>; quote: string }[] = [];
-  const push = (field: string, page: number, bbox: number[] | undefined, quote: string) =>
+  const push = (field: string, page: number, bbox: number[] | null | undefined, quote: string) =>
     items.push({ type: "pdf_page", ref: { blobUrl, poId, field, page, bbox }, quote });
   push("customer_po_number", extraction.customer_po_number.anchor.page, extraction.customer_po_number.anchor.bbox, extraction.customer_po_number.value);
   push("po_date", extraction.po_date.anchor.page, extraction.po_date.anchor.bbox, extraction.po_date.value);

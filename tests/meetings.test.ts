@@ -113,7 +113,7 @@ describe("Harborview Monday meeting end to end", () => {
 describe("deterministic validation escalates on tampering", () => {
   const base = (): MeetingFollowupOutput => ({
     summary: [{ text: "x", segment_refs: [0] }],
-    action_items: [{ text: "x", owner: "rep", segment_refs: [0] }],
+    action_items: [{ text: "x", owner: "rep", due_hint: null, segment_refs: [0] }],
     opportunity_updates: [],
     follow_up_email: {
       to: ["ray.delgado@whitakercommercial.example.com"],

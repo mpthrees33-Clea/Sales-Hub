@@ -30,3 +30,16 @@ export const MODEL_PRICING_PER_MTOK: Record<string, { in: number; out: number }>
   [MODELS.frontier]: { in: 3, out: 15 },
   [DEMO_MODEL_ID]: { in: 0, out: 0 },
 };
+
+/**
+ * Gateway id → direct Anthropic API id, for the Message Batches path only.
+ * The Batches API is not exposed through the AI Gateway, so the nightly batch
+ * layer talks to the Anthropic API directly (see lib/ai/anthropic-batch.ts).
+ */
+export const ANTHROPIC_DIRECT_IDS: Record<string, string> = {
+  [MODELS.fast]: "claude-haiku-4-5",
+  [MODELS.frontier]: "claude-sonnet-4-5",
+};
+
+/** Message Batches process asynchronously at 50% of standard token prices. */
+export const BATCH_DISCOUNT = 0.5;

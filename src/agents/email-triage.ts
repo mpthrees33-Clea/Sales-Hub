@@ -75,7 +75,7 @@ const archiveThread = scopedTool({
   },
 });
 
-const outputSchema = z.object({
+export const triageOutputSchema = z.object({
   category: z.enum([
     "quote_request",
     "stock_check",
@@ -91,10 +91,10 @@ const outputSchema = z.object({
   usedBody: z.boolean(),
 });
 
-export type TriageOutput = z.infer<typeof outputSchema>;
+export type TriageOutput = z.infer<typeof triageOutputSchema>;
 
 /** Metadata-first heuristics shared by the demo script (and finalize sanity). */
-function classifyFromMetadata(subject: string, senderKnown: boolean, hasPdf: boolean): { category: TriageCategory; confidence: number } | null {
+export function classifyFromMetadata(subject: string, senderKnown: boolean, hasPdf: boolean): { category: TriageCategory; confidence: number } | null {
   const s = subject.toLowerCase();
   if (!senderKnown) return { category: "noise", confidence: 0.93 };
   if (hasPdf && (s.includes("po ") || s.startsWith("po") || s.includes("purchase order"))) {
@@ -129,8 +129,10 @@ export const emailTriageAgent = defineAgent({
   name: "email-triage",
   description: "Classifies one inbound email metadata-first into a triage category.",
   model: MODELS.fast,
+  temperature: 0, // classification is deterministic — no sampling creativity
+  maxOutputTokens: 512,
   inputSchema: z.object({ emailId: z.string().uuid() }),
-  outputSchema,
+  outputSchema: triageOutputSchema,
   tools: [lookupSender, loadEmailBody, archiveThread],
   maxSteps: 6,
   systemPrompt: () =>
@@ -143,6 +145,34 @@ export const emailTriageAgent = defineAgent({
       "Archive (archive_thread) only clear noise — newsletters, vendor spam — never a known contact.",
       "Output JSON: {category, confidence, rationale (one line), usedBody}.",
     ].join("\n"),
+  // The live model needs the deterministic pointers its tools take (from
+  // address for lookup_sender, threadId for archive_thread) — the demo script
+  // reads them from the DB directly, but the model can only see the prompt.
+  // Metadata block first, task last (long-context ordering).
+  buildUserContent: async (input) => {
+    const email = await db.query.emails.findFirst({ where: eq(emails.id, input.emailId) });
+    if (!email) throw new Error("email not found");
+    const attachments = email.attachments.length
+      ? email.attachments.map((a) => `${a.name} (${a.contentType})`).join(", ")
+      : "none";
+    return [
+      {
+        type: "text" as const,
+        text: [
+          "Email metadata:",
+          `- emailId: ${email.id}`,
+          `- threadId: ${email.threadId}`,
+          `- from: ${email.fromEmail}`,
+          `- subject: ${email.subject}`,
+          `- attachments: ${attachments}`,
+        ].join("\n"),
+      },
+      {
+        type: "text" as const,
+        text: "Classify the email above. Metadata first (lookup_sender with the from address); call load_email_body only if metadata is inconclusive.",
+      },
+    ];
+  },
   demoScript: async ({ input, tools }) => {
     const email = await db.query.emails.findFirst({ where: eq(emails.id, input.emailId) });
     if (!email) throw new Error("email not found");
@@ -197,7 +227,20 @@ export async function runTriageForEmail(
     return { result, routingId: null };
   }
 
-  const out = result.output;
+  const routingId = await finalizeTriage(email, result.output);
+  return { result, routingId };
+}
+
+/**
+ * The deterministic half of triage, shared verbatim by the serial agent path
+ * and the batch path — the routing decision is code either way; the model
+ * only classifies.
+ */
+export async function finalizeTriage(
+  email: typeof emails.$inferSelect,
+  out: TriageOutput,
+): Promise<string | null> {
+  const emailId = email.id;
   const lowConfidence = out.confidence < 0.5;
   const category = out.category;
   const target = lowConfidence ? "none" : categoryToTarget(category);
@@ -242,7 +285,7 @@ export async function runTriageForEmail(
     occurredAt: email.receivedAt,
   });
 
-  return { result, routingId: routing?.id ?? null };
+  return routing?.id ?? null;
 }
 
 async function accountIdForSender(fromEmail: string): Promise<string | null> {

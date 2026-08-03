@@ -215,6 +215,35 @@ Harness behavior (implemented once in WO-01, used by all):
    `<untrusted_content>` delimiters via a single helper; triage runs
    metadata-first; email-reading agents' tool lists contain **no external-effect
    tools** (lethal-trifecta separation) — they end at drafts/approvals.
+7. **Batch what's stateless; keep humans-in-the-loop interactive**: the
+   nightly triage sweep runs through the Anthropic **Message Batches API**
+   when a direct `ANTHROPIC_API_KEY` is present — overnight classification is
+   latency-insensitive and item-independent, so it processes at **50% of
+   standard token prices** (`lib/ai/anthropic-batch.ts`; per-run cost applies
+   the discount and the run trace shows a "batch −50%" tag). The boundary is
+   architectural, not incidental: a batch item is one stateless request, so
+   only single-shot classification/extraction qualifies. Agents whose tools
+   are intercepted into approvals mid-loop (quote, reply, opportunity
+   updates) stay interactive. Ladder: demo mode → deterministic scripts;
+   live without the key → serial gateway calls; live with the key → batches,
+   with per-item failures degrading to serial runs.
+
+   *Prompt caching is deliberately deferred*: gateway pass-through of
+   `providerOptions.anthropic.cacheControl` is unverified from this
+   environment, the shared system prompts sit near the 1024-token cache
+   minimum for the Haiku tier, and batch items process in parallel so
+   intra-batch cache hits aren't guaranteed. Revisit when live keys exist to
+   measure against: the criteria that would flip this call are (a) verified
+   cache-read billing through the gateway and (b) system prompts growing past
+   ~2k tokens (style cards, catalog context).
+8. **Required-but-nullable extraction fields (anti-fabrication)**: every
+   model-reported fact in an output schema is *required* and `.nullable()` —
+   the JSON Schema the model sees carries `"type": ["T","null"]`, so the model
+   must explicitly assert absence with `null` on every field, every time.
+   Silent omission is a schema failure; a fabricated value is caught by the
+   deterministic validators. `.optional()` is reserved for code-supplied
+   inputs and tool-call arguments, where omission is a caller decision, not a
+   claim about the world.
 
 ## 6. Provider pattern (`src/providers/`)
 

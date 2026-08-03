@@ -28,6 +28,8 @@ export const morningBriefAgent = defineAgent({
   name: "morning-brief",
   description: "Writes the 2–3 sentence morning narrative over the assembled overnight payload.",
   model: MODELS.fast,
+  temperature: 0.7, // narrative drafting over a code-assembled payload
+  maxOutputTokens: 1024,
   inputSchema: z.object({ payload: z.custom<BriefPayload>((v) => typeof v === "object" && v !== null) }),
   outputSchema: z.object({ narrative: z.string().min(10) }),
   tools: [],

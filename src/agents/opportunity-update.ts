@@ -77,6 +77,8 @@ export const opportunityUpdateAgent = defineAgent({
   name: "opportunity-update",
   description: "Proposes evidence-backed opportunity changes from yesterday's emails and meetings for one account.",
   model: MODELS.frontier,
+  temperature: 0, // CRM field diffs are extraction, not prose
+  maxOutputTokens: 2048,
   inputSchema: z.object({ accountId: z.string().uuid(), sinceIso: z.string() }),
   outputSchema,
   tools: [getAccountContext, proposeOpportunityUpdate],

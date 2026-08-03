@@ -6,12 +6,18 @@
  */
 import fs from "node:fs/promises";
 import { NextResponse, type NextRequest } from "next/server";
-import { contentTypeForKey, safeLocalPath } from "@/lib/blob";
+import { contentTypeForKey, resolveBlobKeyUrl, safeLocalPath } from "@/lib/blob";
+import { usingLocalBlobStore } from "@/lib/env";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ key: string[] }> }) {
   const { key } = await ctx.params;
   const joined = key.join("/");
   try {
+    if (!usingLocalBlobStore) {
+      // Vercel Blob deployments: app-relative references (seed fixtures,
+      // attachment payloads) still hit this route — redirect to the store.
+      return NextResponse.redirect(await resolveBlobKeyUrl(joined), 307);
+    }
     const data = await fs.readFile(safeLocalPath(joined));
     return new NextResponse(new Uint8Array(data), {
       headers: {

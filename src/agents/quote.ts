@@ -29,12 +29,21 @@ const getSourceEmail = scopedTool({
     if (!routing) throw new Error("routing not found");
     const source = await db.query.emails.findFirst({ where: eq(emails.id, routing.emailId) });
     if (!source) throw new Error("source email not found");
+    // Deterministic sender resolution: the live model needs contactId /
+    // accountId for get_pricing and record_quote, and must never guess them.
+    const senderContact = await db.query.contacts.findFirst({
+      where: eq(contacts.email, source.fromEmail.toLowerCase()),
+    });
     return {
       data: {
         emailId: source.id,
+        threadId: source.threadId,
         from: source.fromEmail,
         subject: source.subject,
         receivedAt: source.receivedAt.toISOString(),
+        sender: senderContact
+          ? { contactId: senderContact.id, name: senderContact.name, accountId: senderContact.accountId }
+          : null,
         body: wrapUntrusted(source.bodyText, { source: `email:${source.id}` }),
       },
       evidence: [{ type: "email" as const, ref: { emailId: source.id }, quote: source.subject }],
@@ -144,7 +153,7 @@ const outputSchema = z.object({
   ),
   accountId: z.string(),
   contactId: z.string(),
-  notes: z.string().optional(),
+  notes: z.string().nullable().describe("null when the quote needs no free-text note — never pad"),
   splitProposed: z.boolean(),
   quoteNumber: z.string(),
   approvalId: z.string(),
@@ -154,6 +163,8 @@ export const quoteAgent = defineAgent({
   name: "quote",
   description: "Turns a quote-request email into a priced, review-ready quote reply draft.",
   model: MODELS.frontier,
+  temperature: 0.3, // mostly deterministic tool work with a short drafted reply
+  maxOutputTokens: 4096,
   inputSchema: z.object({ routingId: z.string().uuid() }),
   outputSchema,
   tools: [getSourceEmail, lookupProducts, checkStock, getPricing, recordQuoteTool, createQuoteReplyDraft],
@@ -285,6 +296,7 @@ export const quoteAgent = defineAgent({
       })),
       accountId: contact.accountId,
       contactId: contact.id,
+      notes: null,
       splitProposed,
       quoteNumber: recorded.number,
       approvalId: draft.approvalId,

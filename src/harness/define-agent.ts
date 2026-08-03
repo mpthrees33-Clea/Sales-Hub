@@ -21,7 +21,7 @@
  * tool wrappers, interception, recording, and schema validation; only the
  * "thinking" is scripted. Demo mode is first-class (docs/00 §3).
  */
-import { generateText, stepCountIs, tool as aiTool, zodSchema } from "ai";
+import { generateText, hasToolCall, stepCountIs, tool as aiTool, zodSchema } from "ai";
 import type { z } from "zod";
 import type { Evidence } from "@/db/schema";
 import { DEMO_MODEL_ID } from "@/lib/ai/models";
@@ -71,6 +71,7 @@ export type AgentDef<In, Out> = {
   tools: ScopedTool[];
   maxSteps: number;
   systemPrompt: (ctx: RunCtx) => string;
+  buildUserContent?: (input: In) => Promise<unknown>;
   run: (input: In, opts: RunOpts) => Promise<AgentRunResult<Out>>;
 };
 
@@ -82,6 +83,14 @@ export function defineAgent<In, Out>(cfg: {
   outputSchema: z.ZodType<Out>;
   tools: ScopedTool[];
   maxSteps?: number;
+  /**
+   * Sampling temperature. Extraction/classification agents pin 0
+   * (deterministic); drafting agents run warmer for voice. Unset ⇒ provider
+   * default.
+   */
+  temperature?: number;
+  /** Output-token ceiling — a cost guardrail per call. Unset ⇒ provider default. */
+  maxOutputTokens?: number;
   systemPrompt: (ctx: RunCtx) => string;
   /**
    * Deterministic stand-in for the model when no AI_GATEWAY_API_KEY is set.
@@ -283,6 +292,8 @@ export function defineAgent<In, Out>(cfg: {
 
     async function runLiveLoop(): Promise<unknown> {
       const t0 = Date.now();
+      let submitted: unknown;
+      let submittedCalled = false;
       const tools = Object.fromEntries(
         cfg.tools.map((t) => [
           t.name,
@@ -293,32 +304,94 @@ export function defineAgent<In, Out>(cfg: {
           }),
         ]),
       );
+      // Structured output via tool use: the agent's output schema — null
+      // unions, descriptions and all — is transmitted to the model as this
+      // tool's inputSchema, so JSON is enforced at generation time instead of
+      // being scraped out of free text afterwards.
+      tools.submit_result = buildSubmitResultTool(cfg.outputSchema, (args) => {
+        submitted = args;
+        submittedCalled = true;
+      }) as unknown as (typeof tools)[string];
       const system =
         cfg.systemPrompt({ demoNow, trigger: opts.trigger }) +
-        "\n\nWhen you are done, output ONLY a single JSON object matching the required output schema — no prose around it.";
+        "\n\nWhen you are done, call the submit_result tool exactly once with your final output. Do not print the result as prose.";
       const userContent = cfg.buildUserContent ? await cfg.buildUserContent(input) : null;
+      const firstMessages = [
+        userContent
+          ? { role: "user" as const, content: userContent as never }
+          : { role: "user" as const, content: `Input:\n${JSON.stringify(input, null, 2)}` },
+      ];
+      const sampling = {
+        ...(cfg.temperature !== undefined ? { temperature: cfg.temperature } : {}),
+        ...(cfg.maxOutputTokens !== undefined ? { maxOutputTokens: cfg.maxOutputTokens } : {}),
+      };
+      const recordSteps = async (
+        steps: { text?: string; usage?: { inputTokens?: number; outputTokens?: number } }[],
+      ) => {
+        for (const step of steps) {
+          await recorder.step({
+            kind: "llm_call",
+            name: "model_step",
+            input: null,
+            output: { text: step.text?.slice(0, 2000) ?? null },
+            durationMs: 0,
+            tokensIn: step.usage?.inputTokens ?? 0,
+            tokensOut: step.usage?.outputTokens ?? 0,
+          });
+        }
+      };
       const result = await generateText({
         model: cfg.model,
         system,
-        ...(userContent
-          ? { messages: [{ role: "user" as const, content: userContent as never }] }
-          : { prompt: `Input:\n${JSON.stringify(input, null, 2)}` }),
+        messages: firstMessages,
         tools,
-        stopWhen: stepCountIs(maxSteps),
+        ...sampling,
+        // +1 leaves room for the submit_result call itself, so single-shot
+        // agents (maxSteps: 1) still get their one working step.
+        stopWhen: [stepCountIs(maxSteps + 1), hasToolCall("submit_result")],
       });
-      for (const step of result.steps) {
-        await recorder.step({
-          kind: "llm_call",
-          name: "model_step",
-          input: null,
-          output: { text: step.text?.slice(0, 2000) ?? null },
-          durationMs: 0,
-          tokensIn: step.usage?.inputTokens ?? 0,
-          tokensOut: step.usage?.outputTokens ?? 0,
-        });
-      }
+      await recordSteps(result.steps);
       void t0;
-      return extractJson(result.text);
+
+      // Fallback: a model that answered in prose instead of calling the tool
+      // still gets one parse attempt before parse-or-escalate applies.
+      const attempt: unknown = submittedCalled ? submitted : tryExtractJson(result.text);
+      const firstParse = cfg.outputSchema.safeParse(attempt);
+      if (firstParse.success) return attempt;
+
+      // Schema-repair turn: feed the validation errors back ONCE before
+      // escalating — the standard production loop. The repair attempt is
+      // recorded as its own step so the run trace shows it happened.
+      const issues = firstParse.error.issues.slice(0, 10);
+      await recorder.step({
+        kind: "validation",
+        name: "schema_repair",
+        input: { zodIssues: issues },
+        output: null,
+        durationMs: 0,
+      });
+      submitted = undefined;
+      submittedCalled = false;
+      const repair = await generateText({
+        model: cfg.model,
+        system,
+        messages: [
+          ...firstMessages,
+          ...(result.response.messages as never[]),
+          {
+            role: "user" as const,
+            content:
+              `Your output failed schema validation:\n${JSON.stringify(issues, null, 2)}\n\n` +
+              "Call the submit_result tool again with a corrected object. Fix ONLY the listed issues — do not invent values; use null where the schema allows it and the source has no value.",
+          },
+        ],
+        tools,
+        ...sampling,
+        stopWhen: [stepCountIs(2), hasToolCall("submit_result")],
+      });
+      await recordSteps(repair.steps);
+      // Second failure escalates via the caller's parse-or-escalate.
+      return submittedCalled ? submitted : extractJson(repair.text);
     }
   }
 
@@ -331,8 +404,35 @@ export function defineAgent<In, Out>(cfg: {
     tools: cfg.tools,
     maxSteps,
     systemPrompt: cfg.systemPrompt,
+    buildUserContent: cfg.buildUserContent,
     run,
   };
+}
+
+/**
+ * The structured-output tool: its inputSchema IS the agent's output schema,
+ * so the model receives the full JSON Schema (required-but-nullable unions
+ * included) and "returns" its answer by calling the tool. Exported for tests.
+ */
+export function buildSubmitResultTool(outputSchema: z.ZodType<unknown>, capture: (args: unknown) => void) {
+  return aiTool({
+    description:
+      "Submit your final answer. Call exactly once when done; the input IS the run output and must satisfy the schema.",
+    inputSchema: zodSchema(outputSchema),
+    execute: async (args: unknown) => {
+      capture(args);
+      return { accepted: true };
+    },
+  });
+}
+
+/** Like extractJson, but yields null instead of escalating — used before the repair turn. */
+function tryExtractJson(text: string): unknown {
+  try {
+    return extractJson(text);
+  } catch {
+    return null;
+  }
 }
 
 /** Pull the final JSON object out of model text (fenced or bare). */

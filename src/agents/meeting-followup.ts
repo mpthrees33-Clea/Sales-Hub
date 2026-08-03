@@ -134,14 +134,20 @@ export const meetingFollowupOutput = z
         z.object({
           text: z.string(),
           owner: z.enum(["rep", "customer"]),
-          due_hint: z.string().optional(),
+          // Anti-fabrication: required-but-nullable — the model must assert
+          // absence explicitly instead of omitting (or inventing) a deadline.
+          due_hint: z.string().nullable().describe("null if the transcript states no due date — never guess"),
           segment_refs: segmentRefs,
         }),
       )
       .min(1),
     opportunity_updates: z.array(
       z.object({
-        opportunity_id: z.string().uuid().optional(),
+        opportunity_id: z
+          .string()
+          .uuid()
+          .nullable()
+          .describe("existing opportunity id, or null when this update creates a new one"),
         new_opportunity: z
           .object({
             name: z.string(),
@@ -149,7 +155,8 @@ export const meetingFollowupOutput = z
             value_cents: z.number().int(),
             project_hint: z.string(),
           })
-          .optional(),
+          .nullable()
+          .describe("null when updating an existing opportunity"),
         field_diffs: z.array(z.object({ field: z.string(), old: z.unknown(), new: z.unknown() })).min(1),
         segment_refs: segmentRefs,
       }),
@@ -176,6 +183,8 @@ export const meetingFollowupAgent = defineAgent({
   name: "meeting-followup",
   description: "Turns a diarized meeting transcript into grounded follow-up work — summary, actions, CRM deltas, draft.",
   model: MODELS.frontier,
+  temperature: 0.3, // grounded extraction first, light drafting second
+  maxOutputTokens: 4096,
   inputSchema,
   outputSchema: meetingFollowupOutput,
   tools: [getMeetingContext, searchProducts, erpLookupPricing, erpCheckStock, searchPdsDocuments],
@@ -191,8 +200,11 @@ export const meetingFollowupAgent = defineAgent({
     ].join("\n"),
   buildUserContent: async (input) => {
     const text = input.transcript.map((s, i) => `[${i}] ${s.speaker}: ${s.text}`).join("\n");
+    // Long-context ordering: the (potentially long) transcript goes first, the
+    // task instruction last, where model attention is strongest.
     return [
-      { type: "text" as const, text: `Meeting id: ${input.meetingId}\n\n${wrapUntrusted(text, { source: `transcript:${input.meetingId}`, maxChars: 24_000 })}` },
+      { type: "text" as const, text: wrapUntrusted(text, { source: `transcript:${input.meetingId}`, maxChars: 24_000 }) },
+      { type: "text" as const, text: `Meeting id: ${input.meetingId}. Produce the grounded follow-up output for the transcript above.` },
     ];
   },
   demoScript: async ({ input, tools }) => {
@@ -246,6 +258,7 @@ export const meetingFollowupAgent = defineAgent({
     if (harborviewOpp) {
       opportunity_updates.push({
         opportunity_id: harborviewOpp.id,
+        new_opportunity: null,
         field_diffs: [
           {
             field: "next_step",
@@ -258,6 +271,7 @@ export const meetingFollowupAgent = defineAgent({
     }
     if (phase3Seg >= 0) {
       opportunity_updates.push({
+        opportunity_id: null,
         new_opportunity: {
           name: "Harborview Medical Ph3 — Outpatient Wing (planning)",
           stage: "lead",
@@ -297,9 +311,9 @@ I'll have the full corridor quote to you and Jenna by end of day tomorrow. And t
       ],
       action_items: [
         { text: "Send Walnut Grain corridor pricing (project tier) to Ray and Jenna", owner: "rep" as const, due_hint: "by EOD tomorrow", segment_refs: [pricingSeg] },
-        { text: "Attach PDS + install guide for the life-safety review", owner: "rep" as const, segment_refs: [docsSeg] },
-        { text: "Keep matte white casework as priced alternate for the board", owner: "rep" as const, segment_refs: [Math.max(alternateSeg, 0)] },
-        { text: "Turn in submittal package within a week if docs are clean", owner: "customer" as const, segment_refs: [Math.max(ccSeg, 0)] },
+        { text: "Attach PDS + install guide for the life-safety review", owner: "rep" as const, due_hint: null, segment_refs: [docsSeg] },
+        { text: "Keep matte white casework as priced alternate for the board", owner: "rep" as const, due_hint: null, segment_refs: [Math.max(alternateSeg, 0)] },
+        { text: "Turn in submittal package within a week if docs are clean", owner: "customer" as const, due_hint: null, segment_refs: [Math.max(ccSeg, 0)] },
       ],
       opportunity_updates,
       follow_up_email: {

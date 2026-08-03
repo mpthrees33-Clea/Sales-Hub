@@ -84,10 +84,32 @@ export async function blobExists(key: string): Promise<boolean> {
   }
 }
 
+/**
+ * Resolve a blob KEY to a fetchable URL in the ACTIVE store. Needed because
+ * some references are stored as app-relative "/api/blob/<key>" strings (seed
+ * fixtures, attachment payloads) regardless of which store wrote the bytes.
+ */
+export async function resolveBlobKeyUrl(key: string): Promise<string> {
+  if (usingLocalBlobStore) return `/api/blob/${key}`;
+  const { list } = await import("@vercel/blob");
+  const { blobs } = await list({ prefix: key, limit: 10, token: env.BLOB_READ_WRITE_TOKEN });
+  const hit = blobs.find((b) => b.pathname === key);
+  if (!hit) throw new Error(`blob not found in store: ${key}`);
+  return hit.url;
+}
+
 /** Read a blob's bytes server-side from a stored URL (local or remote). */
 export async function getBlobBuffer(url: string): Promise<Buffer> {
   if (url.startsWith("/api/blob/")) {
-    return Buffer.from(await fs.readFile(safeLocalPath(url.slice("/api/blob/".length))));
+    const key = url.slice("/api/blob/".length);
+    if (!usingLocalBlobStore) {
+      // Production (Vercel Blob): the serverless filesystem never has the
+      // bytes — resolve the key to its store URL and fetch it.
+      const res = await fetch(await resolveBlobKeyUrl(key));
+      if (!res.ok) throw new Error(`blob fetch failed: ${res.status} ${key}`);
+      return Buffer.from(await res.arrayBuffer());
+    }
+    return Buffer.from(await fs.readFile(safeLocalPath(key)));
   }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`blob fetch failed: ${res.status} ${url}`);
