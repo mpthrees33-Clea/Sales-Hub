@@ -145,6 +145,34 @@ export const emailTriageAgent = defineAgent({
       "Archive (archive_thread) only clear noise — newsletters, vendor spam — never a known contact.",
       "Output JSON: {category, confidence, rationale (one line), usedBody}.",
     ].join("\n"),
+  // The live model needs the deterministic pointers its tools take (from
+  // address for lookup_sender, threadId for archive_thread) — the demo script
+  // reads them from the DB directly, but the model can only see the prompt.
+  // Metadata block first, task last (long-context ordering).
+  buildUserContent: async (input) => {
+    const email = await db.query.emails.findFirst({ where: eq(emails.id, input.emailId) });
+    if (!email) throw new Error("email not found");
+    const attachments = email.attachments.length
+      ? email.attachments.map((a) => `${a.name} (${a.contentType})`).join(", ")
+      : "none";
+    return [
+      {
+        type: "text" as const,
+        text: [
+          "Email metadata:",
+          `- emailId: ${email.id}`,
+          `- threadId: ${email.threadId}`,
+          `- from: ${email.fromEmail}`,
+          `- subject: ${email.subject}`,
+          `- attachments: ${attachments}`,
+        ].join("\n"),
+      },
+      {
+        type: "text" as const,
+        text: "Classify the email above. Metadata first (lookup_sender with the from address); call load_email_body only if metadata is inconclusive.",
+      },
+    ];
+  },
   demoScript: async ({ input, tools }) => {
     const email = await db.query.emails.findFirst({ where: eq(emails.id, input.emailId) });
     if (!email) throw new Error("email not found");

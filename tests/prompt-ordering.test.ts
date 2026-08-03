@@ -12,8 +12,12 @@ vi.mock("@/lib/blob", () => ({
   getBlobBuffer: vi.fn(async () => Buffer.from("%PDF-1.4 fake")),
 }));
 
+import { desc, eq } from "drizzle-orm";
+import { emailTriageAgent } from "@/agents/email-triage";
 import { meetingFollowupAgent } from "@/agents/meeting-followup";
 import { poIntakeAgent } from "@/agents/po-intake";
+import { db } from "@/db/client";
+import { emails } from "@/db/schema";
 
 type Part = { type: string; text?: string; mediaType?: string };
 
@@ -42,5 +46,21 @@ describe("prompt ordering — document first, instruction last", () => {
     expect(parts[1]!.type).toBe("text");
     expect(parts[1]!.text).toContain(meetingId);
     expect(parts[1]!.text).toMatch(/transcript above/i);
+  });
+
+  it("email-triage inlines the deterministic metadata its tools need, task last", async () => {
+    const row = await db.query.emails.findFirst({
+      where: eq(emails.direction, "inbound"),
+      orderBy: desc(emails.receivedAt),
+    });
+    if (!row) throw new Error("no seeded inbound email — run pnpm seed");
+    const parts = (await emailTriageAgent.buildUserContent!({ emailId: row.id })) as Part[];
+    expect(parts).toHaveLength(2);
+    // the live model can only see the prompt: from address (lookup_sender)
+    // and threadId (archive_thread) must be in it
+    expect(parts[0]!.text).toContain("Email metadata:");
+    expect(parts[0]!.text).toContain(row.fromEmail);
+    expect(parts[0]!.text).toContain(row.threadId);
+    expect(parts[1]!.text).toMatch(/classify the email above/i);
   });
 });

@@ -198,6 +198,38 @@ export const emailReplyAgent = defineAgent({
       "Finish by calling create_email_draft exactly once — you cannot send; the draft goes to the human approval queue.",
       "Then output JSON: {status:'drafted', approvalId, summary, attachmentAssetIds}.",
     ].join("\n"),
+  // Reply mode arrives as a bare routingId; the live model needs the resolved
+  // pointers its tools take (threadId for get_thread, the from address for
+  // get_account_context). Deterministic code resolves the routing — the model
+  // never guesses ids. Context first, task last.
+  buildUserContent: async (input) => {
+    if (input.mode === "compose") {
+      return [{ type: "text" as const, text: `Input:\n${JSON.stringify(input, null, 2)}` }];
+    }
+    const routing = await db.query.triageRoutings.findFirst({ where: eq(triageRoutings.id, input.routingId) });
+    if (!routing) throw new Error("routing not found");
+    const source = await db.query.emails.findFirst({ where: eq(emails.id, routing.emailId) });
+    if (!source) throw new Error("source email not found");
+    const replyIntent = (routing.payload as { replyIntent?: string } | null)?.replyIntent ?? "general";
+    return [
+      {
+        type: "text" as const,
+        text: [
+          "Routed reply context:",
+          `- routingId: ${routing.id}`,
+          `- threadId: ${routing.threadId}`,
+          `- sourceEmailId: ${routing.emailId}`,
+          `- from: ${source.fromEmail}`,
+          `- subject: ${source.subject}`,
+          `- replyIntent: ${replyIntent}`,
+        ].join("\n"),
+      },
+      {
+        type: "text" as const,
+        text: "Draft the reply for the routed email above (get_thread with the threadId; get_account_context with the from address).",
+      },
+    ];
+  },
   demoScript: async ({ input, tools, demoNow }) => {
     void demoNow;
     const card = ((await tools.get_style_profile!({})) as { card: { signoff: string } }).card;

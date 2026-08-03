@@ -29,12 +29,21 @@ const getSourceEmail = scopedTool({
     if (!routing) throw new Error("routing not found");
     const source = await db.query.emails.findFirst({ where: eq(emails.id, routing.emailId) });
     if (!source) throw new Error("source email not found");
+    // Deterministic sender resolution: the live model needs contactId /
+    // accountId for get_pricing and record_quote, and must never guess them.
+    const senderContact = await db.query.contacts.findFirst({
+      where: eq(contacts.email, source.fromEmail.toLowerCase()),
+    });
     return {
       data: {
         emailId: source.id,
+        threadId: source.threadId,
         from: source.fromEmail,
         subject: source.subject,
         receivedAt: source.receivedAt.toISOString(),
+        sender: senderContact
+          ? { contactId: senderContact.id, name: senderContact.name, accountId: senderContact.accountId }
+          : null,
         body: wrapUntrusted(source.bodyText, { source: `email:${source.id}` }),
       },
       evidence: [{ type: "email" as const, ref: { emailId: source.id }, quote: source.subject }],
