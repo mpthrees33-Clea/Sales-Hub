@@ -17,7 +17,7 @@ import { opportunityUpdateAgent } from "@/agents/opportunity-update";
 import { runTriageForEmail } from "@/agents/email-triage";
 import { batchTriageEmails } from "@/agents/email-triage-batch";
 import { db } from "@/db/client";
-import { approvals, contacts, demoState, emails, meetings, morningBriefs, transcripts } from "@/db/schema";
+import { agentRuns, approvals, contacts, demoState, emails, meetings, morningBriefs, transcripts } from "@/db/schema";
 import { RunRecorder } from "@/harness/run-recorder";
 import { audit } from "@/lib/audit";
 import { dayBounds, formatTimeShort, repDateKey, yesterdayBounds } from "@/lib/dates";
@@ -42,7 +42,12 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
   const demoNow = await getDemoNow();
   const dedupKey = `nightly:${repDateKey(demoNow)}`;
 
-  // Parent run — the dedup key makes same-day re-invocations no-ops.
+  // Parent run — the dedup key makes same-day re-invocations no-ops, EXCEPT
+  // when the earlier invocation died mid-flight (serverless timeout, crash):
+  // then the run is adopted and resumed. Every step is idempotent by design
+  // (processed-email filter, routing claims, meeting no-ops), so resume is
+  // duplicate-free — which is what lets the whole night span more than one
+  // bounded serverless invocation.
   let recorder: RunRecorder;
   try {
     recorder = await RunRecorder.start({
@@ -53,7 +58,21 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
       dedupKey,
     });
   } catch {
-    return { status: "noop", reason: "nothing to process — the nightly run already ran for this demo day" };
+    const existing = await db.query.agentRuns.findFirst({ where: eq(agentRuns.dedupKey, dedupKey) });
+    if (!existing) return { status: "noop", reason: "nightly run already recorded for this demo day" };
+    const ageMs = Date.now() - existing.startedAt.getTime();
+    const looksDead = existing.status === "failed" || (existing.status === "running" && ageMs > 6 * 60_000);
+    if (existing.status === "succeeded" || !looksDead) {
+      return { status: "noop", reason: "nothing to process — the nightly run already ran for this demo day" };
+    }
+    recorder = await RunRecorder.resume(existing.id);
+    await audit({
+      actor: "system",
+      action: "nightly.resumed",
+      objectType: "agent_run",
+      objectId: existing.id,
+      detail: { priorStatus: existing.status, ageMs },
+    });
   }
   const workflowRunId = recorder.runId;
   const step = async (name: string, fn: () => Promise<unknown>) => {
@@ -158,11 +177,17 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
       );
       const results: Record<string, string> = {};
       for (const accountId of accountIds) {
-        const res = await opportunityUpdateAgent.run(
-          { accountId, sinceIso: yStart.toISOString() },
-          { trigger: "nightly", workflowRunId },
-        );
-        results[accountId] = `${res.status}:${res.approvalIds.length}`;
+        try {
+          const res = await opportunityUpdateAgent.run(
+            { accountId, sinceIso: yStart.toISOString() },
+            // Per-account dedup makes resume duplicate-free: an account already
+            // updated by the pre-crash invocation is skipped, not re-proposed.
+            { trigger: "nightly", workflowRunId, dedupKey: `opp-update:${repDateKey(demoNow)}:${accountId}` },
+          );
+          results[accountId] = `${res.status}:${res.approvalIds.length}`;
+        } catch (err) {
+          results[accountId] = `skipped:${err instanceof Error && /duplicate|unique/i.test(err.message) ? "already-ran" : String(err).slice(0, 80)}`;
+        }
       }
       return { accounts: accountIds.length, results };
     });
@@ -174,12 +199,18 @@ export async function nightlyRun(opts: { trigger: "cron" | "simulate" }): Promis
       briefRun.status === "succeeded" && briefRun.output
         ? (briefRun.output as { narrative: string }).narrative
         : "The nightly run finished; review the approval queue.";
-    await db.insert(morningBriefs).values({
-      runId: workflowRunId,
-      brief: { counts: briefPayload.counts, queueDigest: briefPayload.queueDigest, docket: briefPayload.docket, kpis: briefPayload.kpis, elapsedMs: Date.now() - t0 },
-      narrative,
-      briefDate: repDateKey(demoNow),
+    // Resume safety: never a second brief for the same demo day.
+    const existingBrief = await db.query.morningBriefs.findFirst({
+      where: eq(morningBriefs.briefDate, repDateKey(demoNow)),
     });
+    if (!existingBrief) {
+      await db.insert(morningBriefs).values({
+        runId: workflowRunId,
+        brief: { counts: briefPayload.counts, queueDigest: briefPayload.queueDigest, docket: briefPayload.docket, kpis: briefPayload.kpis, elapsedMs: Date.now() - t0 },
+        narrative,
+        briefDate: repDateKey(demoNow),
+      });
+    }
     await step("assembleBrief", async () => ({ narrative: narrative.slice(0, 120) }));
 
     // 7. finalize.
